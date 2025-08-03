@@ -1,0 +1,5 @@
+server:
+  port: 8090 # możesz wybrać inny port
+spring:
+  application:
+    name: ai-analytics-service

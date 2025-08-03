@@ -96,6 +96,9 @@
         <module>services/eureka-server</module>
         <module>services/config-server</module>
         <module>services/user-service</module>
+        <module>services/ai-analytics-service</module>
+        <module>services/blockchain-service</module>
+        <module>services/voting-service</module>
     </modules>
 
     <build>
