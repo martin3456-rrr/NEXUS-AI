@@ -1,0 +1,4 @@
+jwt:
+  secret: myVeryLongSecretKeyThatShouldBeAtLeast256BitsLongForHS512Algorithm
+  expiration: 86400000      # 24 hours in milliseconds
+  refresh-expiration: 604800000  # 7 days in milliseconds
