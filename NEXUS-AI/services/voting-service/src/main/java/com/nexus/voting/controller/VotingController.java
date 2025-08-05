@@ -15,9 +15,10 @@ public class VotingController {
     @PostMapping("/{proposalId}")
     public String vote(@PathVariable long proposalId) {
         try {
-            return ethereumVotingService.castVote(proposalId);
+            //return ethereumVotingService.castVote(proposalId);
         } catch (Exception e) {
             return "Błąd przy wysyłaniu transakcji: " + e.getMessage();
         }
+        return null;
     }
 }

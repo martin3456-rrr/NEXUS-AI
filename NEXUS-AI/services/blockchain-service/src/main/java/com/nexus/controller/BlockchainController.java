@@ -1,4 +1,4 @@
-package com.nexus.blockchain.controller;
+package com.nexus.controller;
 
 import com.nexus.blockchain.model.Block;
 import org.springframework.web.bind.annotation.*;

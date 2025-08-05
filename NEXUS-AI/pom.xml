@@ -11,6 +11,7 @@
     <groupId>org.example</groupId>
     <artifactId>NEXUS-AI</artifactId>
     <version>0.0.1-SNAPSHOT</version>
+    <packaging>pom</packaging>
     <name>NEXUS-AI</name>
     <description>NEXUS-AI</description>
     <url/>
@@ -149,5 +150,4 @@
             </releases>
         </pluginRepository>
     </pluginRepositories>
-
 </project>

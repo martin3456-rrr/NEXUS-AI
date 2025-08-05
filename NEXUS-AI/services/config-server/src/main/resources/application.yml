@@ -7,9 +7,9 @@ spring:
     config:
       server:
         git:
-          uri: https://github.com/twoj-uzytkownik/nexus-ai.git
+          uri: https://github.com/martin3456-rrr/NEXUS-AI.git
           search-paths:
-            - config-repo # Ścieżka do katalogu z konfiguracją
+            - config-repo
 eureka:
   client:
     serviceUrl:

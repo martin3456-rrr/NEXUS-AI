@@ -7,10 +7,10 @@ import java.util.Date;
 
 @Getter
 public class Block {
-    private String hash;
-    private String previousHash;
-    private String data;
-    private long timeStamp;
+    private final String hash;
+    private final String previousHash;
+    private final String data;
+    private final long timeStamp;
 
     public Block(String data, String previousHash) {
         this.data = data;
@@ -20,7 +20,7 @@ public class Block {
     }
 
     public String calculateHash() {
-        String dataToHash = previousHash + Long.toString(timeStamp) + data;
+        String dataToHash = previousHash + timeStamp + data;
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             byte[] hashBytes = digest.digest(dataToHash.getBytes(StandardCharsets.UTF_8));

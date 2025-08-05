@@ -1,3 +1,5 @@
+package com.nexus.user;
+
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;

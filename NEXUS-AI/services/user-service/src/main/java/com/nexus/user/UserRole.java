@@ -1,3 +1,8 @@
+package com.nexus.user;
+
+import lombok.Getter;
+
+@Getter
 public enum UserRole {
     USER("USER", "Regular user with basic permissions"),
     MODERATOR("MODERATOR", "Moderator with content management permissions"),
@@ -11,11 +16,4 @@ public enum UserRole {
         this.description = description;
     }
 
-    public String getRoleName() {
-        return roleName;
-    }
-
-    public String getDescription() {
-        return description;
-    }
 }
