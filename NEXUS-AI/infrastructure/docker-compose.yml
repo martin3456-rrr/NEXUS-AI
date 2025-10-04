@@ -81,20 +81,16 @@ services:
       # Spring Cloud Config
       SPRING_CLOUD_CONFIG_URI: http://config-server:8888
       SPRING_CLOUD_CONFIG_FAIL_FAST: 'true'
-
       # Eureka
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
       EUREKA_INSTANCE_PREFER_IP_ADDRESS: 'true'
-
       # Database
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/user_db
       SPRING_DATASOURCE_USERNAME: user
       SPRING_DATASOURCE_PASSWORD: password
-
       # JPA
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       SPRING_JPA_SHOW_SQL: 'false'
-
       # JWT
       JWT_SECRET: dockerSecretKeyForProductionUse256BitsLong
       JWT_EXPIRATION: 86400000
@@ -107,10 +103,61 @@ services:
       retries: 3
     restart: unless-stopped
 
+  # Notification Service - Real-time Communication
+  notification-service:
+    build:
+      context: ../services/notification-service
+      dockerfile: Dockerfile
+    container_name: notification-service
+    ports:
+      - "8085:8085"
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      SPRING_CLOUD_CONFIG_URI: http://config-server:8888
+    networks:
+      - nexus-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8085/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # Payment Service - Asynchronous Processing
+  payment-service:
+    build:
+      context: ../services/payment-service
+      dockerfile: Dockerfile
+    container_name: payment-service
+    ports:
+      - "8086:8086"
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      SPRING_CLOUD_CONFIG_URI: http://config-server:8888
+    networks:
+      - nexus-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8086/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
 # Networks
 networks:
   nexus-network:
     driver: bridge
 
+# Volumes
 volumes:
   postgres_data:

@@ -1,4 +1,4 @@
-package com.nexus.user;
+package com.nexus.user.entity;
 
 import lombok.Getter;
 

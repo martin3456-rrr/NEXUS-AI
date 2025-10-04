@@ -2,6 +2,13 @@ server:
   port: 8081
 
 spring:
+  spring:
+    config:
+      import: optional:configserver:http://localhost:8888
+      spring:
+        application:
+          name: user-service
+
   datasource:
     url: jdbc:postgresql://localhost:5432/user_db
     username: user
@@ -19,3 +26,7 @@ logging:
   level:
     com.nexus.user: DEBUG
     org.springframework.security: DEBUG
+eureka:
+      client:
+        serviceUrl:
+          defaultZone: http://localhost:8761/eureka/

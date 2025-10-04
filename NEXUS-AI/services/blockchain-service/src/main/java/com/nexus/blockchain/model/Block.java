@@ -11,16 +11,21 @@ public class Block {
     private final String previousHash;
     private final String data;
     private final long timeStamp;
+    private final String validator;// Address of the validator
+    private final String signature; // Signature of the block hash by the validator
 
-    public Block(String data, String previousHash) {
+    public Block(String data, String previousHash,String validator, String signature) {
         this.data = data;
         this.previousHash = previousHash;
         this.timeStamp = new Date().getTime();
+        this.validator = validator;
+        this.signature = signature;
         this.hash = calculateHash();
+
     }
 
     public String calculateHash() {
-        String dataToHash = previousHash + timeStamp + data;
+        String dataToHash = previousHash + timeStamp + data + validator;
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             byte[] hashBytes = digest.digest(dataToHash.getBytes(StandardCharsets.UTF_8));

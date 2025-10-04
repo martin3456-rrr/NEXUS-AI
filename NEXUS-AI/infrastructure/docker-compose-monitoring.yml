@@ -1,0 +1,301 @@
+version: '3.8'
+
+services:
+  # ==================== MONITORING STACK ====================
+  
+  # Prometheus - Zbieranie metryk
+  prometheus:
+    image: prom/prometheus:v2.47.0
+    container_name: nexus-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./monitoring/prometheus/alert_rules.yml:/etc/prometheus/alert_rules.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+    restart: unless-stopped
+    networks:
+      - nexus-monitoring
+
+  # Grafana - Dashboardy i wizualizacje
+  grafana:
+    image: grafana/grafana:10.1.0
+    container_name: nexus-grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=nexus123
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel,grafana-worldmap-panel
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/nexus-overview.json
+    restart: unless-stopped
+    networks:
+      - nexus-monitoring
+    depends_on:
+      - prometheus
+
+  # AlertManager - Zarządzanie alertami
+  alertmanager:
+    image: prom/alertmanager:v0.26.0
+    container_name: nexus-alertmanager
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml
+      - alertmanager_data:/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+      - '--web.external-url=http://localhost:9093'
+    restart: unless-stopped
+    networks:
+      - nexus-monitoring
+
+  # ==================== ELK STACK ====================
+  
+  # Elasticsearch - Przechowywanie logów
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.10.0
+    container_name: nexus-elasticsearch
+    environment:
+      - node.name=elasticsearch
+      - cluster.name=nexus-cluster
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms1g -Xmx1g"
+      - xpack.security.enabled=false
+      - xpack.security.enrollment.enabled=false
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    restart: unless-stopped
+    networks:
+      - nexus-monitoring
+
+  # Logstash - Przetwarzanie logów
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.10.0
+    container_name: nexus-logstash
+    ports:
+      - "5044:5044"  # Beats input
+      - "5000:5000/tcp"  # TCP input
+      - "5000:5000/udp"  # UDP input
+      - "9600:9600"  # HTTP API
+    volumes:
+      - ./monitoring/logstash/pipeline:/usr/share/logstash/pipeline
+      - ./monitoring/logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml
+    environment:
+      - "LS_JAVA_OPTS=-Xmx512m -Xms512m"
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    restart: unless-stopped
+    networks:
+      - nexus-monitoring
+    depends_on:
+      - elasticsearch
+
+  # Kibana - Interfejs do przeszukiwania logów
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.10.0
+    container_name: nexus-kibana
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - SERVER_NAME=nexus-kibana
+    volumes:
+      - ./monitoring/kibana/kibana.yml:/usr/share/kibana/config/kibana.yml
+    restart: unless-stopped
+    networks:
+      - nexus-monitoring
+    depends_on:
+      - elasticsearch
+
+  # ==================== MESSAGE QUEUE ====================
+  
+  # Zookeeper - Koordinacja dla Kafka
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.1
+    container_name: nexus-zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_SYNC_LIMIT: 2
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+      - zookeeper_logs:/var/lib/zookeeper/log
+    restart: unless-stopped
+    networks:
+      - nexus-monitoring
+
+  # Kafka - Message Broker
+  kafka:
+    image: confluentinc/cp-kafka:7.4.1
+    container_name: nexus-kafka
+    ports:
+      - "9092:9092"
+      - "9997:9997"  # JMX port for monitoring
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+      # JMX monitoring
+      KAFKA_JMX_PORT: 9997
+      KAFKA_JMX_HOSTNAME: localhost
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    restart: unless-stopped
+    networks:
+      - nexus-monitoring
+    depends_on:
+      - zookeeper
+
+  # Kafka UI - Interfejs do zarządzania Kafka
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: nexus-kafka-ui
+    ports:
+      - "8080:8080"
+    environment:
+      - KAFKA_CLUSTERS_0_NAME=nexus-cluster
+      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:9092
+      - KAFKA_CLUSTERS_0_ZOOKEEPER=zookeeper:2181
+    restart: unless-stopped
+    networks:
+      - nexus-monitoring
+    depends_on:
+      - kafka
+
+  # ==================== DATABASES ====================
+  
+  # PostgreSQL - Główna baza danych
+  postgres:
+    image: postgres:15-alpine
+    container_name: nexus-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: nexus_db
+      POSTGRES_USER: nexus
+      POSTGRES_PASSWORD: nexus123
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./monitoring/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    restart: unless-stopped
+    networks:
+      - nexus-monitoring
+
+  # Redis - Cache i sesje
+  redis:
+    image: redis:7-alpine
+    container_name: nexus-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --requirepass nexus123
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    networks:
+      - nexus-monitoring
+
+  # Redis Commander - GUI dla Redis
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: nexus-redis-commander
+    ports:
+      - "8081:8081"
+    environment:
+      - REDIS_HOSTS=local:redis:6379:1:nexus123
+    restart: unless-stopped
+    networks:
+      - nexus-monitoring
+    depends_on:
+      - redis
+
+  # ==================== NODE EXPORTERS ====================
+  
+  # Node Exporter - Metryki systemu hosta
+  node-exporter:
+    image: prom/node-exporter:v1.6.1
+    container_name: nexus-node-exporter
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    restart: unless-stopped
+    networks:
+      - nexus-monitoring
+
+  # cAdvisor - Metryki kontenerów
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.47.0
+    container_name: nexus-cadvisor
+    ports:
+      - "8082:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    privileged: true
+    restart: unless-stopped
+    networks:
+      - nexus-monitoring
+
+volumes:
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+  alertmanager_data:
+    driver: local
+  elasticsearch_data:
+    driver: local
+  zookeeper_data:
+    driver: local
+  zookeeper_logs:
+    driver: local
+  kafka_data:
+    driver: local
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  nexus-monitoring:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

@@ -1,4 +1,4 @@
-package com.nexus.user;
+package com.nexus.user.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;
@@ -13,7 +13,6 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Data
 @NoArgsConstructor
@@ -72,12 +71,10 @@ public class User implements UserDetails {
     @Column(name = "last_login")
     private LocalDateTime lastLogin;
 
-    // Role użytkownika
     @Enumerated(EnumType.STRING)
     @Column(name = "role")
     private UserRole role = UserRole.USER;
 
-    // Dodatkowe pola bezpieczeństwa
     @Column(name = "failed_login_attempts")
     private int failedLoginAttempts = 0;
 
@@ -93,7 +90,6 @@ public class User implements UserDetails {
     @Column(name = "email_verified")
     private boolean emailVerified = false;
 
-    // Implementacja UserDetails
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         List<SimpleGrantedAuthority> authorities = new ArrayList<>();
@@ -105,7 +101,6 @@ public class User implements UserDetails {
                 authorities.add(new SimpleGrantedAuthority("ADMIN_READ"));
                 authorities.add(new SimpleGrantedAuthority("ADMIN_WRITE"));
                 authorities.add(new SimpleGrantedAuthority("USER_MANAGE"));
-                // Fallthrough - admin ma też uprawnienia użytkownika
             case USER:
                 authorities.add(new SimpleGrantedAuthority("USER_READ"));
                 authorities.add(new SimpleGrantedAuthority("USER_WRITE"));
@@ -170,7 +165,6 @@ public class User implements UserDetails {
                 .anyMatch(grantedAuthority -> grantedAuthority.getAuthority().equals(authority));
     }
 
-    // Callback methods for JPA
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
@@ -182,7 +176,6 @@ public class User implements UserDetails {
         updatedAt = LocalDateTime.now();
     }
 
-    // Pomocnicze metody dla bezpieczeństwa
     public void incrementFailedLoginAttempts() {
         this.failedLoginAttempts++;
         if (this.failedLoginAttempts >= 5) {
