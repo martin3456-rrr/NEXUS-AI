@@ -47,11 +47,30 @@ public class JwtTokenProvider {
         return generateToken(userPrincipal);
     }
 
+    // Convenience overload to support tests and callers passing Authentication directly
+    public String generateToken(Authentication authentication) {
+        if (authentication == null) {
+            throw new IllegalArgumentException("Authentication must not be null");
+        }
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof UserDetails) {
+            return generateToken((UserDetails) principal);
+        }
+        String username;
+        if (principal instanceof String) {
+            username = (String) principal;
+        } else {
+            username = authentication.getName();
+        }
+        return generateToken(username, new HashMap<>());
+    }
+
     public String generateRefreshToken(UserDetails userDetails) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("type", "refresh");
         return createRefreshToken(claims, userDetails.getUsername());
     }
+
 
     private String createToken(Map<String, Object> claims, String subject) {
         Date now = new Date();

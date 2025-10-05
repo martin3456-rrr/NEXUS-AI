@@ -1,0 +1,62 @@
+server:
+  port: 8080 # Main entry point for the entire application
+
+spring:
+  application:
+    name: gateway-service
+  cloud:
+    gateway:
+      server:
+        webflux:
+          globalcors:
+            cors-configurations:
+              '[/**]':
+                  allowedOrigins: "http://localhost:3000"
+                  allowedMethods:
+                    - GET
+                    - POST
+                    - PUT
+                    - DELETE
+                    - OPTIONS
+                  allowedHeaders: "*"
+          discovery:
+            locator:
+              lower-case-service-id: true
+              enabled: true
+          routes:
+            # Route requests for /api/ai/** to the ai-analytics-service
+                    - id: ai-analytics-service
+                      uri: lb://ai-analytics-service # "lb" stands for load-balanced, using Eureka
+                      predicates:
+                        - Path=/api/ai/**
+                      filters:
+                        - RewritePath=/api/ai/(?<segment>.*), /$\{segment}
+
+                    # Route requests for /api/payments/** to the payment-service
+                    - id: payment-service
+                      uri: lb://payment-service
+                      predicates:
+                        - Path=/api/payments/**
+                      filters:
+                        - RewritePath=/api/payments/(?<segment>.*), /$\{segment}
+
+                    # Route requests for /api/notifications/** to the notification-service
+                    - id: notification-service
+                      uri: lb://notification-service
+                      predicates:
+                        - Path=/api/notifications/**
+                      filters:
+                        - RewritePath=/api/notifications/(?<segment>.*), /$\{segment}
+
+                    # Route requests for /api/auth/** and /api/users/** to the user-service
+                    - id: user-service
+                      uri: lb://user-service
+                      predicates:
+                        - Path=/api/auth/**, /api/users/**
+                      filters:
+                        - RewritePath=/api/(?<segment>.*), /$\{segment}
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/

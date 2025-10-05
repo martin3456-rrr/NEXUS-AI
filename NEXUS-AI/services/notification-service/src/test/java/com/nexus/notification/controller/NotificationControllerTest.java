@@ -3,15 +3,15 @@ package com.nexus.notification.controller;
 import com.nexus.notification.model.Notification;
 import org.testng.annotations.Test;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import static org.mockito.Mockito.verify;
 
 @SpringBootTest
 class NotificationControllerTest {
 
-    @MockBean
+    @MockitoBean
     private SimpMessagingTemplate messagingTemplate;
 
     @Test

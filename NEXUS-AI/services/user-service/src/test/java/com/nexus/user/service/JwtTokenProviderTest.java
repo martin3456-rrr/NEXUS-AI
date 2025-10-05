@@ -14,14 +14,24 @@ import static org.assertj.core.api.Assertions.assertThat;
 class JwtTokenProviderTest {
 
     private JwtTokenProvider jwtTokenProvider;
-    private final String testSecret = "testSecretKeyForJunitTests256BitsLong";
-    private final long testExpiration = 86400000L; // 24 hours
+    private final String testSecret = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!@#$%^&*()_+0123456789"; // 80+ chars
+    private final int testExpiration = 86400000; // 24 hours
+    private final int testRefreshExpiration = 604800000; // 7 days
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws Exception {
         jwtTokenProvider = new JwtTokenProvider();
-        // Set test values using reflection or constructor if available
-        // This assumes you have setters or can inject these values
+        java.lang.reflect.Field secretField = JwtTokenProvider.class.getDeclaredField("jwtSecret");
+        secretField.setAccessible(true);
+        secretField.set(jwtTokenProvider, testSecret);
+
+        java.lang.reflect.Field expField = JwtTokenProvider.class.getDeclaredField("jwtExpirationInMs");
+        expField.setAccessible(true);
+        expField.setInt(jwtTokenProvider, testExpiration);
+
+        java.lang.reflect.Field refreshExpField = JwtTokenProvider.class.getDeclaredField("refreshExpirationInMs");
+        refreshExpField.setAccessible(true);
+        refreshExpField.setInt(jwtTokenProvider, testRefreshExpiration);
     }
 
     @Test

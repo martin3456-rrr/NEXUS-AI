@@ -3,9 +3,11 @@ server:
 
 spring:
   config:
-      import: optional:configserver:http://localhost:8888
-      application:
-        name: payment-service
+    import: optional:configserver:http://localhost:8888
+  application:
+    name: payment-service
+
+  # Cloud Stream dla async payments (np. Kafka/RabbitMQ; z starej – processPayment function)
   cloud:
     stream:
       function:
@@ -15,9 +17,51 @@ spring:
           destination: orders
         processPayment-out-0:
           destination: payments
+      rabbit:
+        bindings:
+          processPayment-in-0:
+            consumer:
+              queueNameGroup: orders
+          processPayment-out-0:
+            producer:
+              queueNameGroup: payments
 
+  datasource:
+    url: jdbc:h2:mem:payment
+    driverClassName: org.h2.Driver
+    username: sa
+    password: password
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+  h2:
+    console:
+      enabled: true
 
 eureka:
   client:
     serviceUrl:
       defaultZone: http://localhost:8761/eureka/
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    prefer-ip-address: true
+
+logging:
+  level:
+    org.hibernate.SQL: DEBUG
+    org.springframework.cloud.stream: INFO
+    com.nexus.payment: INFO
+    com.netflix.eureka: INFO
+
+# Management (health checks po DB/Stream/Eureka)
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always

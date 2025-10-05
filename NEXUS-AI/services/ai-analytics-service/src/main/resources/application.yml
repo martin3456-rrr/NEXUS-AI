@@ -1,5 +1,21 @@
 server:
-  port: 8090 # możesz wybrać inny port
+  port: 8081
+
 spring:
   application:
     name: ai-analytics-service
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    prefer-ip-address: true
+
+# Logging (opcjonalne – dla debug rejestracji i predykcji)
+logging:
+  level:
+    com.netflix.eureka: INFO
+    com.nexus.analytics: DEBUG

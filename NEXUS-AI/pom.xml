@@ -59,6 +59,7 @@
         <module>services/ai-analytics-service</module>
         <module>services/blockchain-service</module>
         <module>services/voting-service</module>
+        <module>services/gateway-service</module>
     </modules>
 
     <dependencies>
@@ -141,6 +142,10 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-autoconfigure</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-commons</artifactId>
         </dependency>
     </dependencies>
 

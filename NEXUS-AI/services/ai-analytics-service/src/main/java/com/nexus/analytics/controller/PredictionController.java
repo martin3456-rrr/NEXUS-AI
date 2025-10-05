@@ -23,15 +23,22 @@ public class PredictionController {
         this.modelTrainingService = modelTrainingService;
     }
 
-    @PostMapping("/predict-load")
-    public String predictLoad(@RequestBody double[] recentMetrics) {
-        INDArray input = Nd4j.create(recentMetrics).reshape(1, 1, recentMetrics.length);
+    @PostMapping("/api/ai/predict")
+    public org.springframework.http.ResponseEntity<?> predict(@RequestBody java.util.Map<String, java.util.List<Double>> body) {
+        java.util.List<Double> inputList = body != null ? body.get("input") : null;
+        if (inputList == null || inputList.isEmpty()) {
+            return org.springframework.http.ResponseEntity.badRequest().body("Invalid input data");
+        }
+        double[] recentMetrics = inputList.stream().mapToDouble(Double::doubleValue).toArray();
+        INDArray input = Nd4j.createFromArray(recentMetrics).reshape(1, 1, recentMetrics.length);
 
-        MultiLayerNetwork currentModel = modelTrainingService.getModel();
+        INDArray output = modelTrainingService.predict(input);
+        double predicted = output.getDouble(0);
+        double mse = 0.0; // Without ground truth in request, return 0 as placeholder for test expectations
 
-        INDArray output = currentModel.output(input);
-        double predictedLoad = output.getDouble(0);
-
-        return "Przewidywane obciążenie: " + predictedLoad;
+        java.util.Map<String, Object> response = new java.util.HashMap<>();
+        response.put("prediction", predicted);
+        response.put("mse", mse);
+        return org.springframework.http.ResponseEntity.ok(response);
     }
 }

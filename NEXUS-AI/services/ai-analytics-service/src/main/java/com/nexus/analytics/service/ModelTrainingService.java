@@ -38,6 +38,15 @@ public class ModelTrainingService {
         return this.currentModel;
     }
 
+    /**
+     * Perform a prediction using the current model.
+     * @param input INDArray shaped as required by the model
+     * @return INDArray with the model output
+     */
+    public INDArray predict(INDArray input) {
+        return this.currentModel.output(input);
+    }
+
     @Async
     public CompletableFuture<MultiLayerNetwork> createAndTrainModel() {
         MultiLayerConfiguration config = new NeuralNetConfiguration.Builder()

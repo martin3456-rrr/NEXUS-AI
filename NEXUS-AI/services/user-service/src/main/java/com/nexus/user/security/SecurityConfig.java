@@ -18,25 +18,25 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 
 @Configuration
 @EnableWebSecurity
-@EnableMethodSecurity(prePostEnabled = true)
+@EnableMethodSecurity(prePostEnabled = true)  // Dla @PreAuthorize na methods (z pierwszej)
 public class SecurityConfig {
 
     @Autowired
-    private JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
+    private JwtAuthenticationEntryPoint JwtAuthenticationEntryPoint;  // Custom 401 handler
 
     @Autowired
-    private JwtAuthenticationFilter jwtAuthenticationFilter;
+    private JwtAuthenticationFilter JwtAuthenticationFilter;  // JWT filter z poprzedniej (połączonej)
 
     @Autowired
-    private UserDetailsService userDetailsService;
+    private UserDetailsService userDetailsService;  // Standard nazwa (z repo; DAO auth)
 
     @Bean
     public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
+        return new BCryptPasswordEncoder();  // BCrypt dla hash passwords (z obu)
     }
 
     @Bean
-    public DaoAuthenticationProvider authenticationProvider() {
+    public DaoAuthenticationProvider authenticationProvider() {  // DAO dla UserDetails (z pierwszej; lepszy niż Builder)
         DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
         authProvider.setUserDetailsService(userDetailsService);
         authProvider.setPasswordEncoder(passwordEncoder());
@@ -44,34 +44,33 @@ public class SecurityConfig {
     }
 
     @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {  // Modern (z pierwszej)
         return config.getAuthenticationManager();
     }
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {  // Modern lambda style (z pierwszej/druga)
         http
-                .cors(cors -> cors.disable())
-                .csrf(csrf -> csrf.disable())
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .exceptionHandling(exceptions -> exceptions
-                        .authenticationEntryPoint(jwtAuthenticationEntryPoint)
+                .cors(cors -> cors.disable())  // Disable CORS (z pierwszej; global config osobno jeśli potrzeba)
+                .csrf(csrf -> csrf.disable())  // Disable CSRF (lambda z drugiej; stateless JWT)
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))  // Stateless (z obu)
+                .exceptionHandling(exceptions -> exceptions  // Custom 401 (z obu)
+                        .authenticationEntryPoint(JwtAuthenticationEntryPoint)
                 )
-                .authorizeHttpRequests(authz -> authz
-                        .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/api/public/**").permitAll()
-                        .requestMatchers("/actuator/health").permitAll()
-                        .requestMatchers("/swagger-ui/**").permitAll()
-                        .requestMatchers("/v3/api-docs/**").permitAll()
-
-                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
-
-                        .requestMatchers("/api/user/**").hasAnyRole("USER", "ADMIN")
-
-                        .anyRequest().authenticated()
+                .authorizeHttpRequests(authz -> authz  // Pełne matchery (z pierwszej + auth/swagger z drugiej)
+                        .requestMatchers("/api/auth/**").permitAll()  // Login/register
+                        .requestMatchers("/api/public/**").permitAll()  // Public endpoints
+                        .requestMatchers("/actuator/health").permitAll()  // Health checks
+                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()  // Swagger (z obu)
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")  // Role ADMIN
+                        .requestMatchers("/api/user/**").hasAnyRole("USER", "ADMIN")  // Role USER/ADMIN
+                        .anyRequest().authenticated()  // Reszta wymaga auth (z obu)
                 );
 
-        http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+        // Register our authentication provider to use UserDetailsService + PasswordEncoder
+        http.authenticationProvider(authenticationProvider());
+
+        http.addFilterBefore(JwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);  // JWT filter przed default (z obu)
 
         return http.build();
     }

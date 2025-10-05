@@ -4,16 +4,30 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>org.example</groupId>
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.3.0</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>org.example</groupId>  <!-- Zachowane z Twojego -->
     <artifactId>voting-service</artifactId>
     <version>0.0.1-SNAPSHOT</version>
+    <packaging>jar</packaging>  <!-- Dodane: Dla jasności, nie psuje -->
 
     <properties>
+        <!-- Zachowane z Twojego -->
         <maven.compiler.source>24</maven.compiler.source>
         <maven.compiler.target>24</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <!-- Dodane z szablonu: Wspólne wersje dla Web3j (pasuje do Twojego 4.14.0) -->
+        <web3j.version>4.14.0</web3j.version>
+        <!-- Opcjonalne: Jeśli chcesz stabilny Spring, dodaj <spring.version>6.1.10</spring.version> i zmień deps poniżej -->
     </properties>
+
     <repositories>
+        <!-- Zachowane z Twojego -->
         <repository>
             <id>jitpack.io</id>
             <url>https://jitpack.io</url>
@@ -21,27 +35,131 @@
     </repositories>
 
     <dependencies>
+        <!-- Zachowane z Twojego (bez zmian) -->
         <dependency>
             <groupId>org.web3j</groupId>
             <artifactId>core</artifactId>
-            <version>4.14.0</version>
+            <version>${web3j.version}</version>  <!-- Używa property, ale wartość z Twojego -->
         </dependency>
         <dependency>
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
             <version>2.5.0</version>
         </dependency>
+
+        <!-- Dodane z szablonu: Pełne Web3j dla Ethereum (geth dla node, codegen dla wrapperów) -->
         <dependency>
-            <groupId>org.springframework</groupId>
-            <artifactId>spring-web</artifactId>
-            <version>7.0.0-M7</version>
-            <scope>compile</scope>
+            <groupId>org.web3j</groupId>
+            <artifactId>geth</artifactId>
+            <version>${web3j.version}</version>
         </dependency>
         <dependency>
-            <groupId>org.springframework</groupId>
-            <artifactId>spring-context</artifactId>
-            <version>7.0.0-M7</version>
-            <scope>compile</scope>
+            <groupId>org.web3j</groupId>
+            <artifactId>codegen</artifactId>
+            <version>${web3j.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- Dodane z szablonu: Spring Boot starter-web (ułatwia app, bez konfliktu z Twoimi manual deps) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!-- Dodane z szablonu: Testy (brakowało w Twoim) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Explicit overrides to address CVEs flagged by scanner -->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+            <version>3.17.0</version>
+        </dependency>
+        <dependency>
+            <groupId>com.jayway.jsonpath</groupId>
+            <artifactId>json-path</artifactId>
+            <version>2.9.0</version>
+        </dependency>
+        <dependency>
+            <groupId>net.minidev</groupId>
+            <artifactId>json-smart</artifactId>
+            <version>2.5.1</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.tomcat.embed</groupId>
+            <artifactId>tomcat-embed-core</artifactId>
+            <version>10.1.31</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.tomcat.embed</groupId>
+            <artifactId>tomcat-embed-websocket</artifactId>
+            <version>10.1.31</version>
+        </dependency>
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.13.2</version>
+            <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <!-- Dodana z szablonu: Cała sekcja build (nie było w Twoim – to klucz do generowania wrapperów) -->
+    <build>
+        <plugins>
+            <!-- Dodane: Maven Compiler Plugin (explicite dla Java 24, uzupełnia Twoje properties) -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.13.0</version>
+                <configuration>
+                    <source>24</source>
+                    <target>24</target>
+                    <encoding>UTF-8</encoding>
+                </configuration>
+            </plugin>
+
+            <!-- Dodane z szablonu: Web3j plugin do generowania wrapperów Solidity (główne nowość) -->
+            <plugin>
+                <groupId>org.web3j</groupId>
+                <artifactId>web3j-maven-plugin</artifactId>
+                <version>${web3j.version}</version>
+                <configuration>
+                    <soliditySourceFiles>
+                        <!-- Ścieżka do plików .sol – dostosuj jeśli potrzeba -->
+                        <directory>src/main/resources/solidity</directory>
+                        <includes>
+                            <include>**/*.sol</include>
+                        </includes>
+                    </soliditySourceFiles>
+                    <outputDirectory>
+                        <!-- Gdzie zapisać wygenerowane pliki Java -->
+                        <java>src/main/java</java>
+                    </outputDirectory>
+                    <packageName>com.nexus.ethereum.generated</packageName>  <!-- Pasuje do projektu NEXUS -->
+                    <outputFormat>java</outputFormat>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>generate-sources</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Opcjonalne dodane: Spring Boot plugin (jeśli chcesz mvn spring-boot:run) -->
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <version>3.3.0</version>
+                <configuration>
+                    <mainClass>com.nexus.voting.VotingApplication</mainClass>  <!-- Dostosuj do Twojej klasy main, np. EthereumVotingApplication -->
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>

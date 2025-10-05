@@ -120,7 +120,7 @@ class UserServiceTest {
         Authentication authentication = mock(Authentication.class);
         when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
                 .thenReturn(authentication);
-        when(jwtTokenProvider.generateToken((UserDetails) authentication)).thenReturn("jwt-token-123");
+        when(jwtTokenProvider.generateToken(authentication)).thenReturn("jwt-token-123");
 
         // When
         String token = userService.authenticateUser(loginRequest);
@@ -128,7 +128,7 @@ class UserServiceTest {
         // Then
         assertThat(token).isEqualTo("jwt-token-123");
         verify(authenticationManager).authenticate(any(UsernamePasswordAuthenticationToken.class));
-        verify(jwtTokenProvider).generateToken((UserDetails) authentication);
+        verify(jwtTokenProvider).generateToken(authentication);
     }
 
     @Test
@@ -143,7 +143,7 @@ class UserServiceTest {
                 .hasMessage("Bad credentials");
 
         verify(authenticationManager).authenticate(any(UsernamePasswordAuthenticationToken.class));
-        verify(jwtTokenProvider, never()).generateToken(any());
+        verify(jwtTokenProvider, never()).generateToken(any(Authentication.class));
     }
 
     @Test
