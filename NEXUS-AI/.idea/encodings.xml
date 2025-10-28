@@ -12,6 +12,8 @@
     <file url="file://$PROJECT_DIR$/services/blockchain-service/src/main/resources" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/services/config-server/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/services/config-server/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/services/e2e-tests/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/services/e2e-tests/src/main/resources" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/services/eureka-server/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/services/eureka-server/src/main/resources" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/services/gateway-service/src/main/java" charset="UTF-8" />

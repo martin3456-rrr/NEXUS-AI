@@ -17,6 +17,7 @@ import java.util.List;
 
 @RestController
 @Tag(name = "Blockchain", description = "Endpoints for interacting with the blockchain")
+@org.springframework.web.bind.annotation.RequestMapping("/api/blockchain")
 public class BlockchainController {
     public static List<Block> blockchain = new ArrayList<>();
     @Autowired

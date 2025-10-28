@@ -1,163 +1,181 @@
 version: '3.8'
 
 services:
-  # PostgreSQL Database
-  postgres:
-    image: postgres:15-alpine
-    container_name: postgres_db
+  # --- INFRASTRUKTURA ---
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.4
     environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: user_db
-      POSTGRES_INITDB_ARGS: '--encoding=UTF-8'
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.4
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+
+  postgres-db:
+    image: postgres:15-alpine
     ports:
       - "5432:5432"
+    environment:
+      POSTGRES_DB: nexus_users
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./init-scripts:/docker-entrypoint-initdb.d
-    networks:
-      - nexus-network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U user -d user_db"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
 
-  # Eureka Server - Service Discovery
-  eureka-server:
-    build:
-      context: ../services/eureka-server
-      dockerfile: Dockerfile
-    container_name: eureka-server
+  prometheus:
+    image: prom/prometheus:v2.45.0
     ports:
-      - "8761:8761"
-    networks:
-      - nexus-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8761/actuator/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    restart: unless-stopped
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    command: --config.file=/etc/prometheus/prometheus.yml
 
-  # Config Server - Centralized Configuration
+  # --- ELK Stack Monitoring Services ---
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.10.2
+    environment:
+      - "discovery.type=single-node"
+      - "xpack.security.enabled=false"
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.10.2
+    ports:
+      - "5044:5044"
+    volumes:
+      - ./logstash/pipeline:/usr/share/logstash/pipeline
+    command: logstash -f /usr/share/logstash/pipeline/logstash.conf
+    depends_on:
+      - elasticsearch
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.10.2
+    ports:
+      - "5601:5601"
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+    depends_on:
+      - elasticsearch
+
+  grafana:
+    image: grafana/grafana:10.1.5
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
+      - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards
+    depends_on:
+      - prometheus
+
+  # --- USŁUGI NEXUS ---
   config-server:
-    build:
-      context: ../services/config-server
-      dockerfile: Dockerfile
-    container_name: config-server
+    build: ./config-server
     ports:
       - "8888:8888"
-    depends_on:
-      eureka-server:
-        condition: service_healthy
     environment:
-      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
-    networks:
-      - nexus-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8888/actuator/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    restart: unless-stopped
+      SPRING_PROFILES_ACTIVE: native
 
-  # User Service - Authentication & User Management
+  eureka-server:
+    build: ./eureka-server
+    ports:
+      - "8761:8761"
+
+  api-gateway:
+    build: ./api-gateway
+    ports:
+      - "8080:8080"
+    depends_on:
+      - eureka-server
+      - config-server
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+
   user-service:
-    build:
-      context: ../services/user-service
-      dockerfile: Dockerfile
-    container_name: user-service
+    build: ./user-service
+    depends_on:
+      - eureka-server
+      - config-server
+      - postgres-db
     ports:
       - "8081:8081"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      eureka-server:
-        condition: service_healthy
-      config-server:
-        condition: service_healthy
     environment:
-      # Spring Cloud Config
-      SPRING_CLOUD_CONFIG_URI: http://config-server:8888
-      SPRING_CLOUD_CONFIG_FAIL_FAST: 'true'
-      # Eureka
-      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
-      EUREKA_INSTANCE_PREFER_IP_ADDRESS: 'true'
-      # Database
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/user_db
-      SPRING_DATASOURCE_USERNAME: user
-      SPRING_DATASOURCE_PASSWORD: password
-      # JPA
-      SPRING_JPA_HIBERNATE_DDL_AUTO: update
-      SPRING_JPA_SHOW_SQL: 'false'
-      # JWT
-      JWT_SECRET: dockerSecretKeyForProductionUse256BitsLong
-      JWT_EXPIRATION: 86400000
-    networks:
-      - nexus-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    restart: unless-stopped
+      SPRING_PROFILES_ACTIVE: docker
+      DB_HOST: postgres-db
+      DB_NAME: nexus_users
+      DB_USER: admin
+      DB_PASS: password
 
-  # Notification Service - Real-time Communication
-  notification-service:
-    build:
-      context: ../services/notification-service
-      dockerfile: Dockerfile
-    container_name: notification-service
+  ai-analytics-service:
+    build: ./ai-analytics-service
+    depends_on:
+      - eureka-server
+      - config-server
+      - kafka
     ports:
-      - "8085:8085"
-    depends_on:
-      eureka-server:
-        condition: service_healthy
-      config-server:
-        condition: service_healthy
+      - "8082:8082"
     environment:
-      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
-      SPRING_CLOUD_CONFIG_URI: http://config-server:8888
-    networks:
-      - nexus-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8085/actuator/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    restart: unless-stopped
+      SPRING_PROFILES_ACTIVE: docker
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
 
-  # Payment Service - Asynchronous Processing
   payment-service:
-    build:
-      context: ../services/payment-service
-      dockerfile: Dockerfile
-    container_name: payment-service
+    build: ./payment-service
+    depends_on:
+      - eureka-server
+      - config-server
+      - kafka
     ports:
       - "8086:8086"
-    depends_on:
-      eureka-server:
-        condition: service_healthy
-      config-server:
-        condition: service_healthy
     environment:
-      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
-      SPRING_CLOUD_CONFIG_URI: http://config-server:8888
-    networks:
-      - nexus-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8086/actuator/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    restart: unless-stopped
+      SPRING_PROFILES_ACTIVE: docker
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
 
-# Networks
-networks:
-  nexus-network:
-    driver: bridge
+  notification-service:
+    build: ./notification-service
+    depends_on:
+      - eureka-server
+      - config-server
+      - kafka
+      - postgres-db
+    ports:
+      - "8085:8085"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      DB_HOST: postgres-db
+      DB_NAME: nexus_notifications
 
-# Volumes
+  blockchain-service:
+    build: ./blockchain-service
+    depends_on:
+      - eureka-server
+      - config-server
+    ports:
+      - "8087:8087"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+
 volumes:
   postgres_data:
+  es_data:
+
+networks:
+  default:
+    driver: bridge

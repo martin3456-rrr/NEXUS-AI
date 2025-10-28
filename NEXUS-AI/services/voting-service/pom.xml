@@ -59,6 +59,11 @@
             <version>${web3j.version}</version>
             <scope>provided</scope>
         </dependency>
+        <dependency>
+            <groupId>net.logstash.logback</groupId>
+            <artifactId>logstash-logback-encoder</artifactId>
+            <version>7.3</version>
+        </dependency>
 
         <!-- Dodane z szablonu: Spring Boot starter-web (ułatwia app, bez konfliktu z Twoimi manual deps) -->
         <dependency>

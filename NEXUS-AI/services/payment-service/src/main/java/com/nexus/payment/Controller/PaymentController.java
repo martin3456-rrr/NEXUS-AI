@@ -1,10 +1,13 @@
 package com.nexus.payment.Controller;
 
 import com.nexus.payment.dto.PaymentRequest;
+import com.nexus.payment.event.PaymentEvent;
+import com.nexus.payment.kafka.PaymentEventPublisher;
 import com.nexus.payment.service.StripeService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
@@ -12,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
 
+import java.time.Instant;
 import java.util.Map;
 
 @RestController
@@ -24,6 +28,12 @@ public class PaymentController {
     @Autowired
     private StripeService stripeService;
 
+    @Autowired
+    private PaymentEventPublisher eventPublisher;
+
+    @Value("${payments.topic:payments.events}")
+    private String paymentsTopic;
+
     @PostMapping("/charge")
     public ResponseEntity<?> processPayment(@Valid @RequestBody PaymentRequest paymentRequest) {  // @Valid for DTO validation
         logger.info("Processing payment request: amount={}, currency={}, description={}",
@@ -33,8 +43,20 @@ public class PaymentController {
             // Call service for charge creation (mock or real Stripe)
             String chargeId = stripeService.createCharge(paymentRequest);
 
+            // Publish async event to Kafka
+            PaymentEvent event = PaymentEvent.builder()
+                    .paymentId(chargeId)
+                    .userId("anonymous")
+                    .amount(paymentRequest.getAmount())
+                    .currency(paymentRequest.getCurrency())
+                    .timestamp(Instant.now().toEpochMilli())
+                    .status("SUCCESS")
+                    .description(paymentRequest.getDescription())
+                    .build();
+            eventPublisher.publish(event);
+
             logger.info("Payment successful for charge ID: {}", chargeId);
-            return ResponseEntity.ok(Map.of(  // JSON response (połączenie z oboma: structured + message)
+            return ResponseEntity.ok(Map.of(
                     "success", true,
                     "message", "Payment processed successfully!",
                     "chargeId", chargeId,

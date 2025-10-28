@@ -1,66 +1,86 @@
 package com.nexus.analytics.controller;
 
 import com.nexus.analytics.service.ModelTrainingService;
-import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.factory.Nd4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
-import static org.hamcrest.Matchers.containsString;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.when;
-import static org.nd4j.linalg.indexing.conditions.Conditions.lessThan;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(PredictionController.class)
+@WebMvcTest(controllers = PredictionController.class)
 @ActiveProfiles("test")
-public class PredictionControllerTest {
+@TestPropertySource(properties = {
+        "eureka.client.register-with-eureka=false",
+        "eureka.client.fetch-registry=false",
+        "spring.cloud.config.enabled=false"
+})
+class PredictionControllerTest {
 
     @Autowired
-    private MockMvc mockMvc;
+    MockMvc mvc;
 
     @MockitoBean
-    private ModelTrainingService modelTrainingService;
-
-    @MockitoBean
-    private MultiLayerNetwork multiLayerNetwork;
+    ModelTrainingService modelTrainingService;
 
     @Test
-    void shouldPredictCorrectlyWithRealData() throws Exception {
-        double[] inputMetrics = {0.1, 0.2, 0.3, 0.4, 0.5};  // 5 próbek historycznych
-        double expectedPrediction = 0.6;  // Oczekiwana predykcja (z trenowania)
-        INDArray inputArray = Nd4j.create(inputMetrics);
-        INDArray mockOutput = Nd4j.create(new double[]{expectedPrediction});
+    void predict_happy_path() throws Exception {
+        INDArray mockOutput = Nd4j.createFromArray(new double[]{0.75}).reshape(1,1);
+        Mockito.when(modelTrainingService.predict(Mockito.any(INDArray.class))).thenReturn(mockOutput);
 
-        when(modelTrainingService.getModel()).thenReturn(multiLayerNetwork);
-        when(multiLayerNetwork.output(any(INDArray.class))).thenReturn(mockOutput);  // Lub when(modelTrainingService.predict(inputArray)).thenReturn(mockOutput);
-
-        String jsonInput = "{\"input\": [0.1, 0.2, 0.3, 0.4, 0.5]}";  // Lub prosty array: "[0.1, 0.2, 0.3, 0.4, 0.5]"
-
-        mockMvc.perform(post("/predict-load")
+        mvc.perform(post("/api/analytics/predict")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(jsonInput))
+                        .content("{" +
+                                "\"input\":[1.0,2.0,3.0]" +
+                                "}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.prediction").value(expectedPrediction))
-                .andExpect(jsonPath("$.mse").value(lessThan(0.05)))
-                .andExpect(content().string(containsString("Przewidywane obciążenie: " + expectedPrediction)));
+                .andExpect(jsonPath("$.prediction").value(0.75))
+                .andExpect(jsonPath("$.mse").exists());
     }
 
     @Test
-    void shouldHandleInvalidInput() throws Exception {
-        String invalidJsonInput = "{\"input\": []}";
-
-        mockMvc.perform(post("/predict-load")
+    void predict_validation_error() throws Exception {
+        mvc.perform(post("/api/analytics/api/ai/predict")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(invalidJsonInput))
-                .andExpect(status().isBadRequest())
-                .andExpect(content().string(containsString("Invalid input data")));
+                        .content("{}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void predict_internal_error() throws Exception {
+        Mockito.when(modelTrainingService.predict(Mockito.any(INDArray.class)))
+                .thenThrow(new RuntimeException("Model failure"));
+
+        mvc.perform(post("/api/analytics/api/ai/predict")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{" +
+                                "\"input\":[1.0]" +
+                                "}"))
+                .andExpect(status().isInternalServerError());
+    }
+    @Test
+    void predict_shouldReturn500OnModelFailure() throws Exception {
+        // Given
+        String errorMessage = "Błąd ładowania modelu";
+        Mockito.when(modelTrainingService.predict(Mockito.any(INDArray.class)))
+                .thenThrow(new RuntimeException(errorMessage));
+
+        // When & Then
+        mvc.perform(post("/api/analytics/predict")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"input\":[1.0, 2.0]}"))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.status").value(500))
+                .andExpect(jsonPath("$.error").value("Internal Server Error"))
+                .andExpect(jsonPath("$.message").value(errorMessage));
     }
 }

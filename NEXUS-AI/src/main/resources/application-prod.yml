@@ -1,0 +1,10 @@
+spring:
+  profiles: prod
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:nexus_notifications}
+    username: ${DB_USER:admin}
+    password: ${DB_PASS:password}
+    driver-class-name: org.postgresql.Driver
+  flyway:
+    enabled: true # Włącz Flyway
+    locations: classpath:db/migration # Gdzie szukać skryptów

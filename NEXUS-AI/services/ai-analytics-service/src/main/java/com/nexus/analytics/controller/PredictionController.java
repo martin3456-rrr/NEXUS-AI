@@ -15,6 +15,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 
 @RestController
 @Tag(name = "AI Prediction", description = "Endpoints for AI model predictions")
+@org.springframework.web.bind.annotation.RequestMapping("/api/analytics")
 public class PredictionController {
 
     private final ModelTrainingService modelTrainingService;
@@ -23,7 +24,7 @@ public class PredictionController {
         this.modelTrainingService = modelTrainingService;
     }
 
-    @PostMapping("/api/ai/predict")
+    @PostMapping("/predict")
     public org.springframework.http.ResponseEntity<?> predict(@RequestBody java.util.Map<String, java.util.List<Double>> body) {
         java.util.List<Double> inputList = body != null ? body.get("input") : null;
         if (inputList == null || inputList.isEmpty()) {

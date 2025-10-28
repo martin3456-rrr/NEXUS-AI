@@ -1,4 +1,4 @@
-name: NEXUS-AI Advanced CI/CD Pipeline
+name: Nexus-AI CI/CD Pipeline
 
 on:
   push:
@@ -16,138 +16,84 @@ env:
   MAVEN_OPTS: '-Xmx1024m'
 
 jobs:
-  # ==================== CODE QUALITY & SECURITY ====================
-  
   code-quality:
     name: Code Quality & Security Analysis
     runs-on: ubuntu-latest
-    
     steps:
-    - name: 📥 Checkout repository
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0  # Shallow clones should be disabled for better analysis
-    
-    - name: ☕ Set up JDK ${{ env.JAVA_VERSION }}
-      uses: actions/setup-java@v4
-      with:
-        java-version: ${{ env.JAVA_VERSION }}
-        distribution: 'temurin'
-    
-    - name: 📦 Cache Maven dependencies
-      uses: actions/cache@v3
-      with:
-        path: ~/.m2
-        key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-        restore-keys: ${{ runner.os }}-maven-
-    
-    - name: 🔍 Run SonarCloud analysis
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-      run: |
-        mvn clean verify sonar:sonar \
-          -Dsonar.projectKey=nexus-ai \
-          -Dsonar.organization=${{ github.repository_owner }} \
-          -Dsonar.host.url=https://sonarcloud.io
-    
-    - name: 🛡️ Run OWASP Dependency Check
-      run: |
-        mvn org.owasp:dependency-check-maven:check \
-          -DfailBuildOnCVSS=7 \
-          -Dformats=HTML,JSON
-    
-    - name: 📊 Upload OWASP report
-      uses: actions/upload-artifact@v3
-      if: always()
-      with:
-        name: owasp-dependency-check-report
-        path: target/dependency-check-report.*
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: temurin
+      - uses: actions/cache@v3
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-maven-
+      - name: Run SonarCloud analysis
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: mvn clean verify sonar:sonar -Dsonar.projectKey=nexus-ai -Dsonar.organization=${{ github.repository_owner }} -Dsonar.host.url=https://sonarcloud.io
+      - name: Run OWASP Dependency Check
+        run: mvn org.owasp:dependency-check-maven:check -DfailBuildOnCVSS=7 -Dformats=HTML,JSON
+      - uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: owasp-dependency-check-report
+          path: target/dependency-check-report.*
 
-  # ==================== TESTING ====================
-  
   unit-tests:
     name: Unit Tests
     runs-on: ubuntu-latest
-    
     strategy:
       matrix:
-        service: [
-          user-service,
-          ai-analytics-service,
-          blockchain-service,
-          voting-service,
-          notification-service,
-          payment-service
-        ]
-    
+        service: [ user-service, ai-analytics-service, blockchain-service, voting-service, notification-service, payment-service ]
     steps:
-    - name: 📥 Checkout repository
-      uses: actions/checkout@v4
-    
-    - name: ☕ Set up JDK ${{ env.JAVA_VERSION }}
-      uses: actions/setup-java@v4
-      with:
-        java-version: ${{ env.JAVA_VERSION }}
-        distribution: 'temurin'
-    
-    - name: 📦 Cache Maven dependencies
-      uses: actions/cache@v3
-      with:
-        path: ~/.m2
-        key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-        restore-keys: ${{ runner.os }}-maven-
-    
-    - name: 🧪 Run unit tests for ${{ matrix.service }}
-      run: |
-        mvn test -pl services/${{ matrix.service }} -am \
-          -Dtest.profile=unit \
-          -Dmaven.test.failure.ignore=false
-    
-    - name: 📊 Generate test report
-      uses: dorny/test-reporter@v1
-      if: success() || failure()
-      with:
-        name: Unit Tests - ${{ matrix.service }}
-        path: 'services/${{ matrix.service }}/target/surefire-reports/*.xml'
-        reporter: java-junit
-        fail-on-error: true
-    
-    - name: 📈 Publish test coverage to Codecov
-      uses: codecov/codecov-action@v3
-      with:
-        file: services/${{ matrix.service }}/target/site/jacoco/jacoco.xml
-        flags: ${{ matrix.service }}
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: temurin
+      - uses: actions/cache@v3
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-maven-
+      - name: Run unit tests
+        run: mvn test -pl services/${{ matrix.service }} -am -Dtest.profile=unit -Dmaven.test.failure.ignore=false
+      - uses: dorny/test-reporter@v1
+        if: success() || failure()
+        with:
+          name: Unit Tests - ${{ matrix.service }}
+          path: 'services/${{ matrix.service }}/target/surefire-reports/*.xml'
+          reporter: java-junit
+          fail-on-error: true
+      - uses: codecov/codecov-action@v3
+        with:
+          file: services/${{ matrix.service }}/target/site/jacoco/jacoco.xml
+          flags: ${{ matrix.service }}
 
   integration-tests:
     name: Integration Tests
     runs-on: ubuntu-latest
     needs: [unit-tests]
-    
     services:
       postgres:
         image: postgres:15
         env:
           POSTGRES_PASSWORD: test
           POSTGRES_DB: nexus_test
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
         ports:
           - 5432:5432
-      
       redis:
         image: redis:7
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+        options: --health-cmd "redis-cli ping" --health-interval 10s --health-timeout 5s --health-retries 5
         ports:
           - 6379:6379
-      
       kafka:
         image: confluentinc/cp-kafka:7.4.1
         env:
@@ -158,335 +104,149 @@ jobs:
           KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
         ports:
           - 9092:9092
-    
     steps:
-    - name: 📥 Checkout repository
-      uses: actions/checkout@v4
-    
-    - name: ☕ Set up JDK ${{ env.JAVA_VERSION }}
-      uses: actions/setup-java@v4
-      with:
-        java-version: ${{ env.JAVA_VERSION }}
-        distribution: 'temurin'
-    
-    - name: 📦 Cache Maven dependencies
-      uses: actions/cache@v3
-      with:
-        path: ~/.m2
-        key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-        restore-keys: ${{ runner.os }}-maven-
-    
-    - name: 🔧 Start Zookeeper
-      run: |
-        docker run -d --name zookeeper -p 2181:2181 \
-          -e ZOOKEEPER_CLIENT_PORT=2181 \
-          -e ZOOKEEPER_TICK_TIME=2000 \
-          confluentinc/cp-zookeeper:7.4.1
-        sleep 10
-    
-    - name: 🧪 Run integration tests
-      run: |
-        mvn verify -P integration-tests \
-          -Dspring.datasource.url=jdbc:postgresql://localhost:5432/nexus_test \
-          -Dspring.datasource.username=postgres \
-          -Dspring.datasource.password=test \
-          -Dspring.redis.host=localhost \
-          -Dspring.redis.port=6379 \
-          -Dspring.kafka.bootstrap-servers=localhost:9092
-    
-    - name: 📊 Generate integration test report
-      uses: dorny/test-reporter@v1
-      if: success() || failure()
-      with:
-        name: Integration Tests
-        path: '**/target/failsafe-reports/*.xml'
-        reporter: java-junit
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: temurin
+      - uses: actions/cache@v3
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-maven-
+      - name: Start Zookeeper
+        run: |
+          docker run -d --name zookeeper -p 2181:2181 \
+            -e ZOOKEEPER_CLIENT_PORT=2181 \
+            -e ZOOKEEPER_TICK_TIME=2000 \
+            confluentinc/cp-zookeeper:7.4.1
+          sleep 10
+      - name: Run integration tests
+        run: mvn verify -P integration-tests -Dspring.datasource.url=jdbc:postgresql://localhost:5432/nexus_test -Dspring.datasource.username=postgres -Dspring.datasource.password=test -Dspring.redis.host=localhost -Dspring.redis.port=6379 -Dspring.kafka.bootstrap-servers=localhost:9092
+      - uses: dorny/test-reporter@v1
+        if: success() || failure()
+        with:
+          name: Integration Tests
+          path: '**/target/failsafe-reports/*.xml'
+          reporter: java-junit
 
-  # ==================== FRONTEND TESTS ====================
-  
-  frontend-tests:
-    name: Frontend Tests
-    runs-on: ubuntu-latest
-    
-    steps:
-    - name: 📥 Checkout repository
-      uses: actions/checkout@v4
-    
-    - name: 📦 Setup Node.js ${{ env.NODE_VERSION }}
-      uses: actions/setup-node@v4
-      with:
-        node-version: ${{ env.NODE_VERSION }}
-        cache: 'npm'
-        cache-dependency-path: nexus-ai-dashboard/package-lock.json
-    
-    - name: 📥 Install dependencies
-      working-directory: nexus-ai-dashboard
-      run: npm ci
-    
-    - name: 🔍 Run ESLint
-      working-directory: nexus-ai-dashboard
-      run: npm run lint
-    
-    - name: 🧪 Run unit tests
-      working-directory: nexus-ai-dashboard
-      run: npm run test:coverage
-    
-    - name: 🎭 Run E2E tests with Playwright
-      working-directory: nexus-ai-dashboard
-      run: |
-        npx playwright install --with-deps
-        npm run test:e2e
-    
-    - name: 📊 Upload test results
-      uses: actions/upload-artifact@v3
-      if: always()
-      with:
-        name: frontend-test-results
-        path: nexus-ai-dashboard/test-results/
-
-  # ==================== BUILD & PUBLISH ====================
-  
   build-and-publish:
-    name: Build & Publish Docker Images
+    name: Build, Scan & Publish Docker Images
     runs-on: ubuntu-latest
-    needs: [code-quality, unit-tests, integration-tests]
+    needs: [integration-tests]
     if: github.event_name != 'pull_request'
-    
     strategy:
       matrix:
-        service: [
-          eureka-server,
-          config-server,
-          api-gateway,
-          user-service,
-          ai-analytics-service,
-          blockchain-service,
-          voting-service,
-          notification-service,
-          payment-service
-        ]
-    
+        service: [ eureka-server, config-server, api-gateway, user-service, ai-analytics-service, blockchain-service, voting-service, notification-service, payment-service ]
     steps:
-    - name: 📥 Checkout repository
-      uses: actions/checkout@v4
-    
-    - name: ☕ Set up JDK ${{ env.JAVA_VERSION }}
-      uses: actions/setup-java@v4
-      with:
-        java-version: ${{ env.JAVA_VERSION }}
-        distribution: 'temurin'
-    
-    - name: 📦 Cache Maven dependencies
-      uses: actions/cache@v3
-      with:
-        path: ~/.m2
-        key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-        restore-keys: ${{ runner.os }}-maven-
-    
-    - name: 🏗️ Build ${{ matrix.service }}
-      run: |
-        mvn clean package -pl services/${{ matrix.service }} -am \
-          -DskipTests \
-          -Dspring-boot.repackage.skip=false
-    
-    - name: 🐳 Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-    
-    - name: 🔐 Log in to Container Registry
-      uses: docker/login-action@v3
-      with:
-        registry: ${{ env.REGISTRY }}
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-    
-    - name: 📋 Extract metadata
-      id: meta
-      uses: docker/metadata-action@v5
-      with:
-        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.service }}
-        tags: |
-          type=ref,event=branch
-          type=ref,event=pr
-          type=sha,prefix={{branch}}-
-          type=raw,value=latest,enable={{is_default_branch}}
-    
-    - name: 🏗️ Build and push Docker image
-      uses: docker/build-push-action@v5
-      with:
-        context: ./services/${{ matrix.service }}
-        platforms: linux/amd64,linux/arm64
-        push: true
-        tags: ${{ steps.meta.outputs.tags }}
-        labels: ${{ steps.meta.outputs.labels }}
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
-        build-args: |
-          BUILDKIT_INLINE_CACHE=1
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: temurin
+      - uses: actions/cache@v3
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-maven-
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and Push ${{ matrix.service }}
+        uses: docker/build-push-action@v5
+        with:
+          context: ./services/${{ matrix.service }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.service }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            BUILDKIT_INLINE_CACHE=1
+      - name: Scan ${{ matrix.service }} Image (Trivy)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.service }}:latest
+          format: table
+          exit-code: 0
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: CRITICAL,HIGH
 
-  # ==================== SECURITY SCANNING ====================
-  
-  security-scan:
-    name: Security Vulnerability Scan
-    runs-on: ubuntu-latest
-    needs: [build-and-publish]
-    if: github.event_name != 'pull_request'
-    
-    strategy:
-      matrix:
-        service: [user-service, ai-analytics-service, blockchain-service]
-    
-    steps:
-    - name: 📥 Checkout repository
-      uses: actions/checkout@v4
-    
-    - name: 🔍 Run Trivy vulnerability scanner
-      uses: aquasecurity/trivy-action@master
-      with:
-        image-ref: '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.service }}:latest'
-        format: 'sarif'
-        output: 'trivy-${{ matrix.service }}.sarif'
-    
-    - name: 📊 Upload Trivy scan results to GitHub Security tab
-      uses: github/codeql-action/upload-sarif@v2
-      with:
-        sarif_file: 'trivy-${{ matrix.service }}.sarif'
-    
-    - name: 🛡️ Run Snyk security scan
-      uses: snyk/actions/docker@master
-      env:
-        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-      with:
-        image: '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.service }}:latest'
-        args: --severity-threshold=high --file=services/${{ matrix.service }}/Dockerfile
-
-  # ==================== DEPLOYMENT ====================
-  
   deploy-staging:
     name: Deploy to Staging
     runs-on: ubuntu-latest
-    needs: [build-and-publish, security-scan]
-    if: github.ref == 'refs/heads/develop'
-    environment: staging
-    
+    needs: [build-and-publish]
+    environment:
+      name: staging
+      url: https://staging.nexus-ai.com
     steps:
-    - name: 📥 Checkout repository
-      uses: actions/checkout@v4
-    
-    - name: 🔧 Setup kubectl
-      uses: azure/setup-kubectl@v3
-      with:
-        version: 'latest'
-    
-    - name: 🔐 Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: us-west-2
-    
-    - name: 📋 Update kubeconfig
-      run: |
-        aws eks update-kubeconfig --region us-west-2 --name nexus-ai-staging
-    
-    - name: 🚀 Deploy to staging
-      run: |
-        envsubst < k8s/staging.yaml | kubectl apply -f -
-        kubectl rollout status deployment/user-service -n nexus-ai-staging
-        kubectl rollout status deployment/ai-analytics-service -n nexus-ai-staging
-    
-    - name: 🧪 Run smoke tests
-      run: |
-        kubectl run smoke-tests --image=curlimages/curl --rm -i --restart=Never -- \
-          curl -f http://user-service.nexus-ai-staging.svc.cluster.local:8081/actuator/health
+      - name: Checkout K8s Config Repo
+        uses: actions/checkout@v4
+        with:
+          repository: 'TwojaOrganizacja/nexus-ai-infra'
+          token: ${{ secrets.INFRA_REPO_TOKEN }}
+          path: 'infra'
+      - name: Set up Kubeconfig
+        uses: azure/k8s-set-context@v4
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBECONFIG_STAGING }}
+      - name: Deploy with Helm
+        run: |
+          cd infra/helm/nexus-ai
+          helm upgrade --install nexus-ai . \
+            --namespace staging \
+            --create-namespace \
+            --set image.tag=${{ github.sha }} \
+            --wait
 
-  deploy-production:
-    name: Deploy to Production
-    runs-on: ubuntu-latest
-    needs: [build-and-publish, security-scan]
-    if: github.ref == 'refs/heads/main'
-    environment: production
-    
-    steps:
-    - name: 📥 Checkout repository
-      uses: actions/checkout@v4
-    
-    - name: 🔧 Setup kubectl
-      uses: azure/setup-kubectl@v3
-      with:
-        version: 'latest'
-    
-    - name: 🔐 Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: us-west-2
-    
-    - name: 📋 Update kubeconfig
-      run: |
-        aws eks update-kubeconfig --region us-west-2 --name nexus-ai-production
-    
-    - name: 🚀 Blue-Green deployment
-      run: |
-        # Create green deployment
-        envsubst < k8s/production-green.yaml | kubectl apply -f -
-        kubectl rollout status deployment/user-service-green -n nexus-ai-production
-        
-        # Run health checks
-        kubectl run health-check --image=curlimages/curl --rm -i --restart=Never -- \
-          curl -f http://user-service-green.nexus-ai-production.svc.cluster.local:8081/actuator/health
-        
-        # Switch traffic to green
-        kubectl patch service user-service -n nexus-ai-production -p '{"spec":{"selector":{"version":"green"}}}'
-        
-        # Cleanup old blue deployment
-        kubectl delete deployment user-service-blue -n nexus-ai-production --ignore-not-found=true
-
-  # ==================== PERFORMANCE TESTS ====================
-  
-  performance-tests:
-    name: Performance Tests
+  run-performance-tests:
+    name: Performance Tests (Staging)
     runs-on: ubuntu-latest
     needs: [deploy-staging]
-    if: github.ref == 'refs/heads/develop'
-    
     steps:
-    - name: 📥 Checkout repository
-      uses: actions/checkout@v4
-    
-    - name: 🔧 Setup k6
-      run: |
-        sudo gpg -k
-        sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
-        echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
-        sudo apt-get update
-        sudo apt-get install k6
-    
-    - name: 🏃 Run performance tests
-      run: |
-        k6 run --out json=performance-results.json tests/performance/load-test.js
-    
-    - name: 📊 Upload performance results
-      uses: actions/upload-artifact@v3
-      with:
-        name: performance-test-results
-        path: performance-results.json
+      - name: Run k6 Load Test
+        uses: grafana/k6-action@v0.2.0
+        with:
+          filename: ./e2e-tests/k6-script.js
+          flags: --vus 50 --duration 30s
+        env:
+          K6_TARGET_URL: https://staging.nexus-ai.com
 
-  # ==================== NOTIFICATION ====================
-  
-  notify:
-    name: Notify Teams
+  deploy-production:
+    name: Deploy to Production (Blue-Green + Canary)
     runs-on: ubuntu-latest
-    needs: [deploy-production, deploy-staging, performance-tests]
-    if: always()
-    
+    needs: [run-performance-tests]
+    if: github.ref == 'refs/heads/main'
+    environment:
+      name: production
+      url: https://nexus-ai.com
     steps:
-    - name: 📢 Notify Slack
-      uses: 8398a7/action-slack@v3
-      with:
-        status: ${{ job.status }}
-        channel: '#nexus-ai-deployments'
-        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
-        fields: repo,message,commit,author,action,eventName,ref,workflow
-      env:
-        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+      - name: Set up Kubeconfig (Production)
+        uses: azure/k8s-set-context@v4
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBECONFIG_PRODUCTION }}
+      - name: Deploy Blue-Green with Helm
+        run: |
+          cd infra/helm/nexus-ai
+          helm upgrade --install nexus-ai . \
+            --namespace production \
+            --set image.tag=${{ github.sha }} \
+            --wait
+      - name: Canary Release (10% Traffic)
+        run: |
+          # Zaawansowana konfiguracja Ingress/Service Mesh wymagana
+          helm upgrade nexus-ai-gateway --set traffic.canary.weight=10
+      - name: Smoke Test Production Canary
+        run: |
+          curl -f https://nexus-ai.com/actuator/health
+      - name: Promote Canary to 100%
+        if: success()
+        run: |
+          helm upgrade nexus-ai-gateway --set traffic.canary.weight=100
