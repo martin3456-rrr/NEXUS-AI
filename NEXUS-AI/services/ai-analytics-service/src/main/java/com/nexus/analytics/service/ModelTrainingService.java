@@ -1,5 +1,9 @@
 package com.nexus.analytics.service;
 
+import org.datavec.api.records.reader.SequenceRecordReader;
+import org.datavec.api.records.reader.impl.csv.CSVRecordReader;
+import org.datavec.api.split.FileSplit;
+import org.deeplearning4j.datasets.datavec.SequenceRecordReaderDataSetIterator;
 import org.deeplearning4j.datasets.iterator.utilty.ListDataSetIterator;
 import org.deeplearning4j.nn.conf.MultiLayerConfiguration;
 import org.deeplearning4j.nn.conf.NeuralNetConfiguration;
@@ -13,17 +17,17 @@ import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.dataset.DataSet;
 import org.nd4j.linalg.factory.Nd4j;
 import org.nd4j.linalg.learning.config.Adam;
-import org.springframework.scheduling.annotation.Async;
-import org.springframework.stereotype.Service;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Service;
 
+import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 
 @Service
 public class ModelTrainingService {
@@ -38,11 +42,6 @@ public class ModelTrainingService {
         return this.currentModel;
     }
 
-    /**
-     * Perform a prediction using the current model.
-     * @param input INDArray shaped as required by the model
-     * @return INDArray with the model output
-     */
     public INDArray predict(INDArray input) {
         return this.currentModel.output(input);
     }
@@ -64,8 +63,15 @@ public class ModelTrainingService {
         model.init();
 
         int batchSize = 10;
+        DataSet allData;
 
-        DataSet allData = createDummySequenceData(200, 50);
+        try {
+            allData = loadRealDataFromCSV("model-data.csv", batchSize);
+            System.out.println("Successfully loaded real data from CSV.");
+        } catch (Exception e) {
+            System.err.println("Failed to load real data, using dummy data: " + e.getMessage());
+            allData = createDummySequenceData(200, 50);
+        }
 
         allData.shuffle();
         org.nd4j.linalg.dataset.SplitTestAndTrain split = allData.splitTestAndTrain(0.8);
@@ -75,16 +81,12 @@ public class ModelTrainingService {
         List<DataSet> trainList = trainingData.asList();
         ListDataSetIterator<DataSet> trainDataIterator = new ListDataSetIterator<>(trainList, batchSize);
 
-        int numSamples = 100;
-        int timeSeriesLength = 50;
-
         int numberOfEpochs = 5;
-
-        //Trening
         for (int i = 0; i < numberOfEpochs; i++) {
             trainDataIterator.reset();
             model.fit(trainDataIterator);
         }
+
         System.out.println("Rozpoczynanie ewaluacji modelu...");
         RegressionEvaluation eval = new RegressionEvaluation(1);
         INDArray features = testData.getFeatures();
@@ -96,11 +98,36 @@ public class ModelTrainingService {
         System.out.println("Mean Squared Error (MSE): " + eval.meanSquaredError(0));
         System.out.println("R^2 Score: " + eval.rSquared(0));
         System.out.println("Ewaluacja zakończona.");
-
-
         System.out.println("Model został pomyślnie wytrenowany.");
+
         return CompletableFuture.completedFuture(model);
     }
+
+    public DataSet loadRealDataFromCSV(String csvFileName, int batchSize) throws Exception {
+        File csvFile = new ClassPathResource(csvFileName).getFile();
+        CSVRecordReader recordReader = new CSVRecordReader(0, ',');
+        recordReader.initialize(new FileSplit(csvFile));
+
+        SequenceRecordReaderDataSetIterator dataIterator = new SequenceRecordReaderDataSetIterator(
+                (SequenceRecordReader) recordReader,
+                batchSize,
+                -1,
+                1,
+                true
+        );
+
+        List<DataSet> allDataList = new ArrayList<>();
+        while (dataIterator.hasNext()) {
+            allDataList.add(dataIterator.next());
+        }
+
+        if (allDataList.isEmpty()) {
+            throw new RuntimeException("No data was loaded from CSV. Check file format.");
+        }
+
+        return DataSet.merge(allDataList);
+    }
+
     public DataSet createDummySequenceData(int numSamples, int timeSeriesLength) {
         List<DataSet> listDs = new ArrayList<>();
         for (int i = 0; i < numSamples; i++) {
@@ -116,13 +143,13 @@ public class ModelTrainingService {
         }
         return DataSet.merge(listDs);
     }
+
     @Async
-    @Scheduled(fixedRate = 86400000) // Uruchamiaj co 24 godziny (w milisekundach)
+    @Scheduled(fixedRate = 86400000)
     public void retrainModelScheduled() throws ExecutionException, InterruptedException {
         System.out.println("Rozpoczynanie cyklicznego treningu modelu...");
         MultiLayerNetwork newModel = createAndTrainModel().get();
         this.currentModel = newModel;
         System.out.println("Cykliczny trening modelu zakończony. Model został zaktualizowany.");
     }
-
 }

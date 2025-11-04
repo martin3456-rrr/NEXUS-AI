@@ -31,6 +31,11 @@
             <artifactId>spring-cloud-starter-gateway</artifactId>
         </dependency>
         <dependency>
+            <groupId>org.datavec</groupId>
+            <artifactId>datavec-api</artifactId>
+            <version>${dl4j.version}</version>
+        </dependency>
+        <dependency>
             <groupId>net.logstash.logback</groupId>
             <artifactId>logstash-logback-encoder</artifactId>
             <version>7.3</version>
@@ -115,7 +120,8 @@
     </dependencies>
 
     <properties>
-        <java.version>24</java.version>
+        <java.version>25</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <dl4j.version>1.0.0-M2.1</dl4j.version>
     </properties>
 </project>

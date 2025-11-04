@@ -13,8 +13,6 @@ import org.web3j.tx.gas.DefaultGasProvider;
 
 import java.math.BigInteger;
 
-import java.math.BigInteger;
-
 @Service
 public class EthereumVotingService {
     private static final Logger logger = LoggerFactory.getLogger(EthereumVotingService.class);
@@ -36,16 +34,9 @@ public class EthereumVotingService {
 
     public String castVote(long proposalId) throws Exception {
         logger.info("Attempting to cast vote for proposal ID: {}", proposalId);
-
-        // Load the generated contract wrapper
         VotingSystem contract = VotingSystem.load(contractAddress, web3j, credentials, new DefaultGasProvider());
-
-        // Call the smart contract function and send the transaction
         TransactionReceipt receipt = contract.vote(BigInteger.valueOf(proposalId)).send();
-
         logger.info("Vote transaction sent successfully. Hash: {}", receipt.getTransactionHash());
-
-        // Return the transaction hash as confirmation
         return receipt.getTransactionHash();
     }
     public BigInteger getVoteCount(long proposalId) throws Exception {
