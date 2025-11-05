@@ -33,13 +33,15 @@ The project is currently under development.
 - Git
 
 ### Instructions
-1. Start Config Server with secrets as environment variables. docker run -d -p 8888:
-
+1. Start Config Server with secrets as environment variables. 
+ ```bash
+ docker run -d -p 8888:
 -e "STRIPE_SECRET_KEY=sk_live_..."
 -e "INFURA_URL=https://sepolia.infura.io/v3/..."
 -e "ETH_PRIVATE_KEY=0x..."
 -e "ETH_CONTRACT_ADDRESS=0x..."
 nexus/config-server
+```
 
 2. Start the infrastructure:
 
