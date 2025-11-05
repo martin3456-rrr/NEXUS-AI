@@ -44,38 +44,44 @@ nexus/config-server
 ```
 
 2. Start the infrastructure:
-
+```bash
 docker-compose up -d eureka-server kafka postgres redis
-
+```
 3. Start the microservices (example for AI Analytics):
-
+```bash
 cd ai-analytics-service
 mvn spring-boot:run
-
+```
 ## Testing
 Run all tests:
-
+```bash
 mvn clean test
-
+```
 Unit, integration (Testcontainers), and full E2E tests will be run automatically.
 
 ## API examples
 - **User Registration:**
+```bash
 curl -X POST http://localhost:8080/api/auth/register -H "Content-Type: application/json" -d '{"username": "e2e_user", "password": "Password123!", "email": "e2e@example.com"}'
-
+```
 - **JWT login:**
+```bash
 curl -X POST http://localhost:8080/api/auth/login -H "Content-Type: application/json" -d '{"username": "e2e_user", "password": "Password123!"}'
-
+```
 - **AI Prediction:**
+```bash
 curl -X POST http://localhost:8080/api/analytics/predict -H "Authorization: Bearer <JWT_TOKEN>" -H "Content-Type: application/json" -d '{"input": [1.0,2.0,3.0,4.0,5.0]}'
-
+```
 - **Stripe Payments:**
+```bash
 curl -X POST http://localhost:8080/api/payments/charge -H "Authorization: Bearer <JWT_TOKEN>" -H "Content-Type: application/json" -d '{"amount": 99.99, "currency": "USD", "description": "Test Charge", "cardNumber": "4111...", "cardExpiry": "12/30", "cardCvc": "123"}'
-
+```
 - **Adding a block in Blockchain:**
+```bash
 curl -X POST http://localhost:8080/api/blockchain/add -H "Authorization: Bearer <JWT_TOKEN>" -H "Content-Type: application/json" -d '{"data": "My super secret E2E data"}'
-
+```
 - **WebSocket Notifications (JS):**
+```JavaScript
 stompClient.connect({}, function(frame) {
 stompClient.subscribe('/topic/public', function(notification) {
 console.log("Public:", JSON.parse(notification.body).content);
@@ -85,3 +91,4 @@ console.log("Private:", JSON.parse(notification.body).content);
 });
 stompClient.send("/app/broadcast", {}, JSON.stringify({'content': 'Message from customer!'}));
 });
+```
