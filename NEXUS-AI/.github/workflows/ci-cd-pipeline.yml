@@ -6,7 +6,7 @@ on:
   pull_request:
     branches: [ main, develop ]
   schedule:
-    - cron: '0 2 * * 0'  # Weekly security scan
+    - cron: '0 2 * * 0'
 
 env:
   REGISTRY: ghcr.io

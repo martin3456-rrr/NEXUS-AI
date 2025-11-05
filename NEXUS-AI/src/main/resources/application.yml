@@ -2,11 +2,9 @@ server:
   port: 8080
 
 spring:
-  # Konfiguracja pobierania ustawień z Config Servera
   config:
     import: optional:configserver:http://localhost:8888
 
-  # Nazwa aplikacji
   application:
     name: nexus-ai-aggregator
 
@@ -15,38 +13,29 @@ spring:
       host: localhost
       port: 6379
 
-  # Główna konfiguracja Spring Cloud Gateway
   cloud:
     gateway:
-      # Włącza automatyczne tworzenie tras na podstawie usług zarejestrowanych w Eureka
       discovery:
         locator:
           enabled: true
           lower-case-service-id: true
-
-      # TUTAJ dodajesz ręczną definicję tras, aby zastosować filtry (np. Rate Limiter)
       routes:
         - id: ai-analytics-service
           uri: lb://ai-analytics-service
           predicates:
-            - Path=/api/analytics/** # Ta trasa będzie obsługiwać wszystkie żądania na /api/analytics/
+            - Path=/api/analytics/**
           filters:
-            # Aplikowanie filtra RequestRateLimiter
             - name: RequestRateLimiter
               args:
-                # Kluczowe parametry dla Redis Rate Limiter
-                redis-rate-limiter.replenishRate: 10   # Pozwala na 10 żądań na sekundę
-                redis-rate-limiter.burstCapacity: 20  # Chwilowy "zapas" na 20 żądań
-                # Bean, który określa, jak grupować żądania (np. po IP)
+                redis-rate-limiter.replenishRate: 10
+                redis-rate-limiter.burstCapacity: 20
                 key-resolver: "#{@userKeyResolver}"
 
-        # Możesz tutaj dodać kolejne ręczne definicje dla innych usług, jeśli potrzebują specjalnych filtrów
         - id: user-service
           uri: lb://user-service
           predicates:
             - Path=/api/users/**, /api/auth/**
 
-# Konfiguracja klienta Eureka
 eureka:
   client:
     serviceUrl:
@@ -56,7 +45,6 @@ eureka:
   instance:
     preferIpAddress: true
 
-# Konfiguracja logowania
 logging:
   level:
     root: INFO

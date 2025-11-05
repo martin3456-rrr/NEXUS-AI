@@ -1,7 +1,6 @@
 version: '3.8'
 
 services:
-  # --- INFRASTRUKTURA ---
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.4
     environment:
@@ -42,7 +41,6 @@ services:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
     command: --config.file=/etc/prometheus/prometheus.yml
 
-  # --- ELK Stack Monitoring Services ---
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.10.2
     environment:
@@ -85,7 +83,6 @@ services:
     depends_on:
       - prometheus
 
-  # --- USŁUGI NEXUS ---
   config-server:
     build: ./config-server
     ports:

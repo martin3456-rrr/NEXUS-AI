@@ -2,8 +2,6 @@ version: '3.8'
 
 services:
   # ==================== MONITORING STACK ====================
-  
-  # Prometheus - Zbieranie metryk
   prometheus:
     image: prom/prometheus:v2.47.0
     container_name: nexus-prometheus
@@ -25,7 +23,6 @@ services:
     networks:
       - nexus-monitoring
 
-  # Grafana - Dashboardy i wizualizacje
   grafana:
     image: grafana/grafana:10.1.0
     container_name: nexus-grafana
@@ -47,7 +44,6 @@ services:
     depends_on:
       - prometheus
 
-  # AlertManager - Zarządzanie alertami
   alertmanager:
     image: prom/alertmanager:v0.26.0
     container_name: nexus-alertmanager
@@ -65,8 +61,7 @@ services:
       - nexus-monitoring
 
   # ==================== ELK STACK ====================
-  
-  # Elasticsearch - Przechowywanie logów
+
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.10.0
     container_name: nexus-elasticsearch
@@ -90,7 +85,6 @@ services:
     networks:
       - nexus-monitoring
 
-  # Logstash - Przetwarzanie logów
   logstash:
     image: docker.elastic.co/logstash/logstash:8.10.0
     container_name: nexus-logstash
@@ -111,7 +105,6 @@ services:
     depends_on:
       - elasticsearch
 
-  # Kibana - Interfejs do przeszukiwania logów
   kibana:
     image: docker.elastic.co/kibana/kibana:8.10.0
     container_name: nexus-kibana
@@ -129,8 +122,7 @@ services:
       - elasticsearch
 
   # ==================== MESSAGE QUEUE ====================
-  
-  # Zookeeper - Koordinacja dla Kafka
+
   zookeeper:
     image: confluentinc/cp-zookeeper:7.4.1
     container_name: nexus-zookeeper
@@ -147,13 +139,12 @@ services:
     networks:
       - nexus-monitoring
 
-  # Kafka - Message Broker
   kafka:
     image: confluentinc/cp-kafka:7.4.1
     container_name: nexus-kafka
     ports:
       - "9092:9092"
-      - "9997:9997"  # JMX port for monitoring
+      - "9997:9997"
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
@@ -163,7 +154,6 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
-      # JMX monitoring
       KAFKA_JMX_PORT: 9997
       KAFKA_JMX_HOSTNAME: localhost
     volumes:
@@ -174,7 +164,6 @@ services:
     depends_on:
       - zookeeper
 
-  # Kafka UI - Interfejs do zarządzania Kafka
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
     container_name: nexus-kafka-ui
@@ -191,8 +180,7 @@ services:
       - kafka
 
   # ==================== DATABASES ====================
-  
-  # PostgreSQL - Główna baza danych
+
   postgres:
     image: postgres:15-alpine
     container_name: nexus-postgres
@@ -209,7 +197,6 @@ services:
     networks:
       - nexus-monitoring
 
-  # Redis - Cache i sesje
   redis:
     image: redis:7-alpine
     container_name: nexus-redis
@@ -222,7 +209,6 @@ services:
     networks:
       - nexus-monitoring
 
-  # Redis Commander - GUI dla Redis
   redis-commander:
     image: rediscommander/redis-commander:latest
     container_name: nexus-redis-commander
@@ -237,8 +223,7 @@ services:
       - redis
 
   # ==================== NODE EXPORTERS ====================
-  
-  # Node Exporter - Metryki systemu hosta
+
   node-exporter:
     image: prom/node-exporter:v1.6.1
     container_name: nexus-node-exporter
@@ -256,7 +241,6 @@ services:
     networks:
       - nexus-monitoring
 
-  # cAdvisor - Metryki kontenerów
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:v0.47.0
     container_name: nexus-cadvisor

@@ -4,6 +4,9 @@ import com.nexus.payment.dto.PaymentRequest;
 import com.nexus.payment.event.PaymentEvent;
 import com.nexus.payment.kafka.PaymentEventPublisher;
 import com.nexus.payment.service.StripeService;
+import com.stripe.model.Charge;
+import com.stripe.model.Event;
+import com.stripe.net.Webhook;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
@@ -110,5 +113,28 @@ public class PaymentController {
         } finally {
             paymentProcessTimer.record(System.nanoTime() - startTime, TimeUnit.NANOSECONDS);
         }
+    }
+    @PostMapping("/webhook")
+    public ResponseEntity<String> handleStripeWebhook(@RequestBody String payload, @RequestHeader("Stripe-Signature") String sigHeader) {
+        // Potrzebujesz sekretu webhooka (inny niż klucz API!)
+        // Ustaw go w Config Serverze: stripe.webhook.secret
+        String endpointSecret = "whsec_....";
+
+        Event event;
+        try {
+            event = Webhook.constructEvent(payload, sigHeader, endpointSecret);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Webhook error: " + e.getMessage());
+        }
+
+        // Obsłuż zdarzenie
+        if ("charge.succeeded".equals(event.getType())) {
+            Charge charge = (Charge) event.getDataObjectDeserializer().getObject().orElse(null);
+            // Znajdź płatność w swojej bazie danych i oznacz jako "ZAPŁACONO"
+            //paymentService.confirmPayment(charge.getId());
+            System.out.println("Payment succeeded for: " + charge.getId());
+        }
+
+        return ResponseEntity.ok().build();
     }
 }
