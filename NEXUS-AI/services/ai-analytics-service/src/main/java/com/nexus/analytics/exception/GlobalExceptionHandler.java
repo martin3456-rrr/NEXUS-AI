@@ -12,7 +12,7 @@ import java.time.Instant;
 import java.util.Map;
 
 @ControllerAdvice
-public class GlobalExceptionHandler {
+public class GlobalExceptionHandler extends BaseGlobalExceptionHandler{
 
     private static final Logger logger = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 

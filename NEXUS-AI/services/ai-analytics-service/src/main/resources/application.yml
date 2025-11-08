@@ -23,7 +23,6 @@ eureka:
   instance:
     prefer-ip-address: true
 
-# Logging (opcjonalne – dla debug rejestracji i predykcji)
 logging:
   level:
     com.netflix.eureka: INFO

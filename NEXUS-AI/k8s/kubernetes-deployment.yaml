@@ -134,8 +134,8 @@ metadata:
   namespace: nexus-ai
 type: Opaque
 data:
-  username: bmV4dXM=  # base64 encoded 'nexus'
-  password: cGFzc3dvcmQ=  # base64 encoded 'password'
+  username: bmV4dXM=
+  password: cGFzc3dvcmQ=
 ---
 apiVersion: v1
 kind: Secret
@@ -144,7 +144,7 @@ metadata:
   namespace: nexus-ai
 type: Opaque
 data:
-  secret: bXlTZWNyZXRLZXlGb3JKV1RUaGF0SXNMb25nRW5vdWdoRm9ySFM1MTI=  # base64 encoded JWT secret
+  secret: bXlTZWNyZXRLZXlGb3JKV1RUaGF0SXNMb25nRW5vdWdoRm9ySFM1MTI=
 ---
 apiVersion: apps/v1
 kind: Deployment

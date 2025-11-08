@@ -1,6 +1,5 @@
 /* App.css – Styles for AI Load Prediction Dashboard */
 
-/* Container */
 .app-container {
     font-family: 'Arial, sans-serif', sans-serif;
     max-width: 600px;
@@ -12,7 +11,6 @@
     text-align: center;
 }
 
-/* Title and Description */
 .app-title {
     color: #333;
     margin-bottom: 10px;
@@ -23,7 +21,6 @@
     margin-bottom: 20px;
 }
 
-/* Input */
 .metrics-input {
     width: 95%;
     padding: 10px;
@@ -31,11 +28,10 @@
     border-radius: 5px;
     border: 1px solid #ccc;
     margin-bottom: 20px;
-    resize: vertical;  /* Allow vertical resize */
+    resize: vertical;
     box-sizing: border-box;
 }
 
-/* Button */
 .predict-button {
     padding: 12px 25px;
     font-size: 18px;
@@ -57,7 +53,6 @@
     cursor: not-allowed;
 }
 
-/* Error */
 .error-message {
     margin-top: 20px;
     color: red;
@@ -67,7 +62,6 @@
     background-color: #ffe6e6;
 }
 
-/* Result */
 .prediction-result {
     margin-top: 25px;
     padding: 20px;
@@ -89,7 +83,6 @@
     margin: 0;
 }
 
-/* Responsive */
 @media (max-width: 600px) {
     .app-container {
         margin: 20px;

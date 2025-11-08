@@ -1,5 +1,5 @@
 server:
-  port: 8080 # Main entry point for the entire application
+  port: 8080
 
 spring:
   application:
@@ -24,15 +24,13 @@ spring:
               lower-case-service-id: true
               enabled: true
           routes:
-            # Route requests for /api/ai/** to the ai-analytics-service
                     - id: ai-analytics-service
-                      uri: lb://ai-analytics-service # "lb" stands for load-balanced, using Eureka
+                      uri: lb://ai-analytics-service
                       predicates:
                         - Path=/api/ai/**
                       filters:
                         - RewritePath=/api/ai/(?<segment>.*), /$\{segment}
 
-                    # Route requests for /api/payments/** to the payment-service
                     - id: payment-service
                       uri: lb://payment-service
                       predicates:
@@ -40,7 +38,6 @@ spring:
                       filters:
                         - RewritePath=/api/payments/(?<segment>.*), /$\{segment}
 
-                    # Route requests for /api/notifications/** to the notification-service
                     - id: notification-service
                       uri: lb://notification-service
                       predicates:
@@ -48,7 +45,6 @@ spring:
                       filters:
                         - RewritePath=/api/notifications/(?<segment>.*), /$\{segment}
 
-                    # Route requests for /api/auth/** and /api/users/** to the user-service
                     - id: user-service
                       uri: lb://user-service
                       predicates:

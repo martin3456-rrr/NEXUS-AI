@@ -42,21 +42,16 @@
     }
 
     function connect() {
-        // NOTE: Change the URL to your actual server address
-        const socket = new SockJS('/ws'); // The endpoint from WebSocketConfig
+        const socket = new SockJS('/ws');
         stompClient = Stomp.over(socket);
         stompClient.connect({}, function (frame) {
             setConnected(true);
             console.log('Connected: ' + frame);
 
-            // Subscribe to public broadcast topic
             stompClient.subscribe('/topic/public', function (notification) {
                 showMessage(JSON.parse(notification.body).content);
             });
 
-            // Subscribe to private reply queue for this user
-            // NOTE: The '/user' prefix is handled by Spring. The client subscribes to '/user/queue/reply'
-            // and the server sends to a path like '/user/{username}/queue/reply'
             stompClient.subscribe('/user/queue/reply', function (notification) {
                 const msg = JSON.parse(notification.body);
                 showMessage(`Private message from ${msg.from}: ${msg.content}`);
@@ -75,7 +70,7 @@
     function sendBroadcast() {
         const content = document.getElementById('broadcastMessage').value;
         const message = {
-            'from': 'client', // This should be the logged-in user in a real app
+            'from': 'client',
             'content': content
         };
         stompClient.send("/app/broadcast", {}, JSON.stringify(message));

@@ -17,9 +17,10 @@ import java.math.BigInteger;
 public class EthereumVotingService {
     private static final Logger logger = LoggerFactory.getLogger(EthereumVotingService.class);
 
+    @Value("${ethereum.contract.address}")
+    private final String contractAddress;
     private final Web3j web3j;
     private final Credentials credentials;
-    private final String contractAddress;
 
     public EthereumVotingService(
             @Value("${infura.url}") String infuraUrl,

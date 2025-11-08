@@ -10,6 +10,8 @@
     <file url="file://$PROJECT_DIR$/services/ai-analytics-service/src/main/resources" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/services/blockchain-service/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/services/blockchain-service/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/services/common-utils/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/services/common-utils/src/main/resources" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/services/config-server/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/services/config-server/src/main/resources" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/services/e2e-tests/src/main/java" charset="UTF-8" />

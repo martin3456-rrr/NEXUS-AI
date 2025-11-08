@@ -7,7 +7,6 @@ const Dashboard = () => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // Pobierz metryki z API Gateway
         const fetchMetrics = async () => {
             try {
                 const [aiRes, servicesRes] = await Promise.all([
@@ -22,7 +21,7 @@ const Dashboard = () => {
             }
         };
         fetchMetrics();
-        const interval = setInterval(fetchMetrics, 30000); // Odśwież co 30s
+        const interval = setInterval(fetchMetrics, 30000);
         return () => clearInterval(interval);
     }, []);
 
@@ -32,7 +31,6 @@ const Dashboard = () => {
         <div className="dashboard">
             <h1>NEXUS-AI Dashboard</h1>
 
-            {/* Wykres predykcji AI */}
             <section>
                 <h2>Predykcje AI (LSTM Model)</h2>
                 <ResponsiveContainer width="100%" height={300}>
@@ -47,8 +45,6 @@ const Dashboard = () => {
                     </LineChart>
                 </ResponsiveContainer>
             </section>
-
-            {/* Status usług */}
             <section>
                 <h2>Status Serwisów</h2>
                 <ul>
@@ -59,8 +55,6 @@ const Dashboard = () => {
                     ))}
                 </ul>
             </section>
-
-            {/* Blockchain metryki */}
             <section>
                 <h2>Blockchain Status</h2>
                 <p>Walidator: {metrics.blockchain?.currentValidator}</p>

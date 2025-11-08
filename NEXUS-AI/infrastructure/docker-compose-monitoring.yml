@@ -1,7 +1,6 @@
 version: '3.8'
 
 services:
-  # ==================== MONITORING STACK ====================
   prometheus:
     image: prom/prometheus:v2.47.0
     container_name: nexus-prometheus
@@ -60,8 +59,6 @@ services:
     networks:
       - nexus-monitoring
 
-  # ==================== ELK STACK ====================
-
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.10.0
     container_name: nexus-elasticsearch
@@ -89,10 +86,10 @@ services:
     image: docker.elastic.co/logstash/logstash:8.10.0
     container_name: nexus-logstash
     ports:
-      - "5044:5044"  # Beats input
-      - "5000:5000/tcp"  # TCP input
-      - "5000:5000/udp"  # UDP input
-      - "9600:9600"  # HTTP API
+      - "5044:5044"
+      - "5000:5000/tcp"
+      - "5000:5000/udp"
+      - "9600:9600"
     volumes:
       - ./monitoring/logstash/pipeline:/usr/share/logstash/pipeline
       - ./monitoring/logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml
@@ -120,8 +117,6 @@ services:
       - nexus-monitoring
     depends_on:
       - elasticsearch
-
-  # ==================== MESSAGE QUEUE ====================
 
   zookeeper:
     image: confluentinc/cp-zookeeper:7.4.1
@@ -179,8 +174,6 @@ services:
     depends_on:
       - kafka
 
-  # ==================== DATABASES ====================
-
   postgres:
     image: postgres:15-alpine
     container_name: nexus-postgres
@@ -221,8 +214,6 @@ services:
       - nexus-monitoring
     depends_on:
       - redis
-
-  # ==================== NODE EXPORTERS ====================
 
   node-exporter:
     image: prom/node-exporter:v1.6.1

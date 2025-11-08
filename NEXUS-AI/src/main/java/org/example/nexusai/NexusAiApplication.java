@@ -25,11 +25,9 @@ public class NexusAiApplication {
     public static void main(String[] args) {
         SpringApplication.run(NexusAiApplication.class, args);
     }
-
     @Bean
     public RouteLocator customRouteLocator(RouteLocatorBuilder builder) {
         return builder.routes()
-                //user-service
                 .route("user-service", r -> r.path("/api/users/**", "/api/auth/**")
                         .filters(f -> f.requestRateLimiter(c -> c.setKeyResolver(userKeyResolver())
                                 .setRateLimiter(redisRateLimiter())
@@ -37,15 +35,15 @@ public class NexusAiApplication {
                         )
                         .uri("lb://user-service"))
 
-                //notification-service
+
                 .route("notification-service", r -> r.path("/api/notifications/**")
                         .uri("lb://notification-service"))
 
-                //payment-service
+
                 .route("payment-service", r -> r.path("/api/payments/**")
                         .uri("lb://payment-service"))
 
-                //ai-analytics-service
+
                 .route("ai-analytics-service", r -> r.path("/api/analytics/**")
                         .filters(f -> f.requestRateLimiter(c -> c.setKeyResolver(userKeyResolver())
                                 .setRateLimiter(redisRateLimiter())
@@ -57,14 +55,10 @@ public class NexusAiApplication {
                 .route("voting-service", r -> r.path("/api/voting/**").uri("lb://voting-service"))
                 .build();
     }
-
-    //RedisRateLimiter
     @Bean
     public RateLimiter redisRateLimiter() {
         return new RedisRateLimiter(10, 20);
     }
-
-    // Klucz resolver bazujący na "X-User-Id"
     @Bean
     public KeyResolver userKeyResolver() {
         return exchange -> Mono.just(
@@ -73,8 +67,6 @@ public class NexusAiApplication {
                         : "anonymous"
         );
     }
-
-    //CORS
     @Bean
     public CorsWebFilter corsWebFilter() {
         CorsConfiguration corsConfig = new CorsConfiguration();

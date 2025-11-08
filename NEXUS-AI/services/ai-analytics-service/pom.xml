@@ -12,15 +12,22 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
+
     <artifactId>ai-analytics-service</artifactId>
     <name>AI Analytics Service</name>
     <description>Service for AI-driven analytics</description>
 
+
     <dependencies>
+        <dependency>
+            <groupId>org.example</groupId>
+            <artifactId>common-utils</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
+
         <dependency>
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>

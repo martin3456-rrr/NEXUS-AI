@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 
-// Main App Component
 export default function App() {
     const [metrics, setMetrics] = useState('0.5, 0.6, 0.7, 0.8, 0.9');
     const [prediction, setPrediction] = useState(null);
@@ -13,21 +12,15 @@ export default function App() {
         setPrediction(null);
 
         try {
-            // 1. Validate and parse input
             const parsedMetrics = metrics.split(',').map(m => parseFloat(m.trim()));
             if (parsedMetrics.some(isNaN)) {
                 throw new Error('Invalid input. Please provide comma-separated numbers.');
             }
 
-            // 2. Make API call to the backend
-            // IMPORTANT: Replace '/predict-load' with the full URL of your AI service if it's running on a different port/host.
-            // e.g., 'http://localhost:8081/predict-load'
-            const response = await fetch('/predict-load', {
+            const response = await fetch('/api/analytics/predict', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(parsedMetrics),
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ "input": parsedMetrics }),
             });
 
             if (!response.ok) {

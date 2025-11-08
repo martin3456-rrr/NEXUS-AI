@@ -1,4 +1,3 @@
-# Etap 1: budowa aplikacji
 FROM eclipse-temurin:21-jdk-jammy AS builder
 WORKDIR /app
 
@@ -8,7 +7,6 @@ RUN ./mvnw dependency:go-offline
 COPY src ./src
 RUN ./mvnw clean package -DskipTests
 
-# Etap 2: lekki obraz runtime
 FROM openjdk:25-jre-slim
 RUN addgroup --system spring && adduser --system --group spring
 
