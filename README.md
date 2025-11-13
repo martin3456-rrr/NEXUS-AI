@@ -52,6 +52,61 @@ docker-compose up -d eureka-server kafka postgres redis
 cd ai-analytics-service
 mvn spring-boot:run
 ```
+
+## MONITORING AND ALERTING (RUNBOOK)
+**Metrics Stack:** Prometheus, Grafana, and Alertmanager.
+
+**Health Checks:** Every microservice exposes standard Spring Boot health checks:
+
+**Health Check:** /actuator/health (Liveness/Readiness Probes for K8s)
+
+**Metrics:** /actuator/prometheus (Metrics target)
+
+**Key Alerts and Response Procedures:**
+
+**Alert:** JvmHeapUsageHigh
+
+**Condition:** Heap memory usage > 80% for 5m.
+
+**Action:** Check logs for memory leaks or high load in the reported service ({{$labels.job}}). Primary Fix: Scale out the service (add more replicas) or increase the JVM memory limit in the service's K8s Deployment YAML.
+
+**Alert:** HighHttp5xxErrors
+
+**Condition:** Service returning 5xx errors for 2m.
+
+**Action:** This indicates a downstream issue (internal server error). Immediate Action: Check logs of the reported service and its dependencies (e.g., PostgreSQL, Kafka, Redis).
+
+**Alert:** HighRequestLatency
+
+**Condition:** 95th percentile of request latency > 1.5s for 5m.
+
+**Action:** Investigate service performance. If the service is CPU-bound (e.g., AI-Analytics-Service), scale out replicas. If it's IO-bound, check database performance or external API latency (Stripe, Infura).
+
+## KUBERNETES DEPLOYMENT & SECRETS MANAGEMENT
+**Deployment Context:** All Kubernetes manifests (Deployments, Services, Ingress) are located in the k8s/ directory, targeting the nexus-ai namespace.
+
+**CRITICAL SETUP: Creating Secrets:**
+
+The system requires the following secrets to be created in the cluster before deployment. These commands MUST be run in the production environment using strong, unique passwords.
+
+**1.PostgreSQL Credentials:**
+ ```bash
+kubectl create secret generic postgres-secret -n nexus-ai \
+  --from-literal=username='nexus' \
+  --from-literal=password='<YOUR_STRONG_PROD_PASSWORD>'
+    ```
+**2.JWT Signing Key:**
+
+```bash
+kubectl create secret generic jwt-secret -n nexus-ai \
+  --from-literal=secret='<YOUR_256BIT_SECRET_KEY>'
+  ```
+**Deployment Command (After Secrets are Created):**
+```bash
+kubectl create namespace nexus-ai
+kubectl apply -f k8s/
+```
+
 ## Testing
 Run all tests:
 ```bash

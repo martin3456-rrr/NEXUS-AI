@@ -26,7 +26,6 @@ public class FullStackE2EIT {
 
     @BeforeAll
     static void setUp() {
-        // Ścieżka do docker-compose.yml — lokalizacja względem testu e2e
         environment = new DockerComposeContainer<>(new File("../../docker-compose.yml"))
                 .withExposedService("api-gateway", 8080,
                         Wait.forHttp("/actuator/health")
@@ -46,7 +45,6 @@ public class FullStackE2EIT {
 
     @Test
     void testFullUserJourney() throws Exception {
-        // Krok 1: rejestracja
         String username = "e2e_user_" + System.currentTimeMillis();
         String email = username + "@example.com";
         Map<String, String> registerRequest = Map.of(
@@ -58,7 +56,6 @@ public class FullStackE2EIT {
                 gatewayUrl + "/api/auth/register", registerRequest, String.class);
         assertThat(registerResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
 
-        // Krok 2: logowanie
         Map<String, String> loginRequest = Map.of("username", username, "password", "Password123!");
         ResponseEntity<Map> loginResponse = restTemplate.postForEntity(
                 gatewayUrl + "/api/auth/login", loginRequest, Map.class);
@@ -70,7 +67,6 @@ public class FullStackE2EIT {
         headers.setBearerAuth(jwtToken);
         HttpEntity<Void> authedEntity = new HttpEntity<>(headers);
 
-        // Krok 3: predykcja AI
         Map<String, ?> aiRequest = Map.of("input", new double[]{1.0, 2.0, 3.0});
         HttpEntity<Map<String, ?>> aiHttpEntity = new HttpEntity<>(aiRequest, headers);
 
@@ -79,7 +75,6 @@ public class FullStackE2EIT {
         assertThat(aiResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(aiResponse.getBody().get("prediction")).isNotNull();
 
-        // Krok 4: płatność
         Map<String, Object> paymentRequest = Map.of(
                 "amount", 99.99,
                 "currency", "USD",
@@ -92,7 +87,6 @@ public class FullStackE2EIT {
         assertThat(paymentResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(paymentResponse.getBody().get("success")).isEqualTo(true);
 
-        // Krok 5: weryfikacja notyfikacji
         await().atMost(Duration.ofSeconds(15)).untilAsserted(() -> {
             ResponseEntity<List> notifResponse = restTemplate.exchange(
                     gatewayUrl + "/api/notifications/anonymous",
@@ -102,14 +96,12 @@ public class FullStackE2EIT {
                     ((Map) item).get("content").toString().contains("E2E Test Payment"));
         });
 
-        // Krok 6: zapis do Blockchain
         HttpEntity<String> blockchainHttpEntity = new HttpEntity<>("E2E Block Data", headers);
         ResponseEntity<Map> blockResponse = restTemplate.postForEntity(
                 gatewayUrl + "/api/blockchain/add", blockchainHttpEntity, Map.class);
         assertThat(blockResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(blockResponse.getBody().get("data")).isEqualTo("E2E Block Data");
 
-        // Krok 7: test rate limiting
         ResponseEntity<String> rateLimitResponse = null;
         for (int i = 0; i < 20; i++) {
             rateLimitResponse = restTemplate.exchange(
@@ -119,5 +111,23 @@ public class FullStackE2EIT {
             }
         }
         assertThat(rateLimitResponse.getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
+    }
+    @Test
+    void testUnauthenticatedAccessReturns401() {
+        HttpEntity<Void> unauthedEntity = new HttpEntity<>(new HttpHeaders());
+        Throwable thrown = catchThrowable(() -> {
+            restTemplate.exchange(
+                    gatewayUrl + "/api/users/me",
+                    HttpMethod.GET,
+                    unauthedEntity,
+                    String.class
+            );
+        });
+        assertThat(thrown)
+                .isInstanceOf(HttpClientErrorException.class)
+                .hasMessageContaining("401 Unauthorized");
+
+        HttpClientErrorException exception = (HttpClientErrorException) thrown;
+        assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
     }
 }

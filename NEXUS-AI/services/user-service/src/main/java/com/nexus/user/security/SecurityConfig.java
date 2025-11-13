@@ -18,25 +18,25 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 
 @Configuration
 @EnableWebSecurity
-@EnableMethodSecurity(prePostEnabled = true)  // Dla @PreAuthorize na methods (z pierwszej)
+@EnableMethodSecurity(prePostEnabled = true)
 public class SecurityConfig {
 
     @Autowired
-    private JwtAuthenticationEntryPoint JwtAuthenticationEntryPoint;  // Custom 401 handler
+    private JwtAuthenticationEntryPoint JwtAuthenticationEntryPoint;
 
     @Autowired
-    private JwtAuthenticationFilter JwtAuthenticationFilter;  // JWT filter z poprzedniej (połączonej)
+    private JwtAuthenticationFilter JwtAuthenticationFilter;
 
     @Autowired
-    private UserDetailsService userDetailsService;  // Standard nazwa (z repo; DAO auth)
+    private UserDetailsService userDetailsService;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();  // BCrypt dla hash passwords (z obu)
+        return new BCryptPasswordEncoder();
     }
 
     @Bean
-    public DaoAuthenticationProvider authenticationProvider() {  // DAO dla UserDetails (z pierwszej; lepszy niż Builder)
+    public DaoAuthenticationProvider authenticationProvider() {
         DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
         authProvider.setUserDetailsService(userDetailsService);
         authProvider.setPasswordEncoder(passwordEncoder());
@@ -44,34 +44,41 @@ public class SecurityConfig {
     }
 
     @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {  // Modern (z pierwszej)
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
         return config.getAuthenticationManager();
     }
-
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {  // Modern lambda style (z pierwszej/druga)
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        configuration.setAllowedOrigins(List.of("http://localhost:3000", "http://127.0.0.1:3000"));
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(List.of("*"));
+        configuration.setAllowCredentials(true);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+
+        return source;
+    }
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                .cors(cors -> cors.disable())  // Disable CORS (z pierwszej; global config osobno jeśli potrzeba)
-                .csrf(csrf -> csrf.disable())  // Disable CSRF (lambda z drugiej; stateless JWT)
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))  // Stateless (z obu)
-                .exceptionHandling(exceptions -> exceptions  // Custom 401 (z obu)
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .csrf(csrf -> csrf.disable())
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint(JwtAuthenticationEntryPoint)
                 )
-                .authorizeHttpRequests(authz -> authz  // Pełne matchery (z pierwszej + auth/swagger z drugiej)
-                        .requestMatchers("/api/auth/**").permitAll()  // Login/register
-                        .requestMatchers("/api/public/**").permitAll()  // Public endpoints
-                        .requestMatchers("/actuator/health").permitAll()  // Health checks
-                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()  // Swagger (z obu)
-                        .requestMatchers("/api/admin/**").hasRole("ADMIN")  // Role ADMIN
-                        .requestMatchers("/api/user/**").hasAnyRole("USER", "ADMIN")  // Role USER/ADMIN
-                        .anyRequest().authenticated()  // Reszta wymaga auth (z obu)
+                .authorizeHttpRequests(authz -> authz
+                        .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/api/public/**").permitAll()
+                        .requestMatchers("/actuator/health").permitAll()
+                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/user/**").hasAnyRole("USER", "ADMIN")
+                        .anyRequest().authenticated()
                 );
-
-        // Register our authentication provider to use UserDetailsService + PasswordEncoder
-        http.authenticationProvider(authenticationProvider());
-
-        http.addFilterBefore(JwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);  // JWT filter przed default (z obu)
-
+        http.addFilterBefore(JwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 }

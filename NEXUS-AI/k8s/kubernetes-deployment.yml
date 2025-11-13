@@ -127,25 +127,6 @@ spec:
       targetPort: 8081
   type: ClusterIP
 ---
-apiVersion: v1
-kind: Secret
-metadata:
-  name: postgres-secret
-  namespace: nexus-ai
-type: Opaque
-data:
-  username: bmV4dXM=
-  password: cGFzc3dvcmQ=
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: jwt-secret
-  namespace: nexus-ai
-type: Opaque
-data:
-  secret: bXlTZWNyZXRLZXlGb3JKV1RUaGF0SXNMb25nRW5vdWdoRm9ySFM1MTI=
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
