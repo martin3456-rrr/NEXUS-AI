@@ -102,7 +102,7 @@ kubectl create secret generic postgres-secret -n nexus-ai \
 kubectl create secret generic jwt-secret -n nexus-ai \
   --from-literal=secret='<YOUR_256BIT_SECRET_KEY>'
   ```
-**Deployment Command (After Secrets are Created):**
+**3.Deployment Command (After Secrets are Created):**
 ```bash
 kubectl create namespace nexus-ai
 kubectl apply -f k8s/
