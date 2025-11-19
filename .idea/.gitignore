@@ -9,7 +9,7 @@
 /dataSources/
 /dataSources.local.xml
 # Kubernetes Secrets
-k8s/secrets/secrets.yaml
-*.secret.yaml
+k8s/secrets/secrets.yml
+*.secret.yml
 .env
 
