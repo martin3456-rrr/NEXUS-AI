@@ -219,9 +219,9 @@ jobs:
           K6_TARGET_URL: https://staging.nexus-ai.com
 
   deploy-production:
-    name: Deploy to Production (Blue-Green + Canary)
+    name: Deploy to Production
     runs-on: ubuntu-latest
-    needs: [run-performance-tests]
+    needs: [ run-performance-tests ]
     if: github.ref == 'refs/heads/main'
     environment:
       name: production
@@ -232,21 +232,45 @@ jobs:
         with:
           method: kubeconfig
           kubeconfig: ${{ secrets.KUBECONFIG_PRODUCTION }}
-      - name: Deploy Blue-Green with Helm
+      - name: Deploy Kubernetes Manifests
+        uses: azure/k8s-deploy@v4
+        with:
+          namespace: nexus-ai
+          manifests: |
+            k8s/namespace.yaml
+            k8s/global-config.yaml
+            k8s/secrets.yaml
+            k8s/postgres-deployment.yaml
+            k8s/postgres-service.yaml
+            k8s/eureka-server-deployment.yaml
+            k8s/eureka-server-service.yaml
+            k8s/user-service-deployment.yaml
+            k8s/user-service-service.yaml
+            k8s/ingress.yaml
+            # dodaj więcej manifestów w razie potrzeby
+          images: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/eureka-server:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/user-service:${{ github.sha }}
+            # dodaj pozostałe obrazy
+          imagepullsecrets: |
+            docker-registry-secret
+      - name: Deploy Blue-Green with Helm (optional)
+        if: false
         run: |
           cd infra/helm/nexus-ai
           helm upgrade --install nexus-ai . \
             --namespace production \
             --set image.tag=${{ github.sha }} \
             --wait
-      - name: Canary Release (10% Traffic)
+      - name: Canary Release (10% Traffic) (optional)
+        if: false
         run: |
-          # Zaawansowana konfiguracja Ingress/Service Mesh wymagana
           helm upgrade nexus-ai-gateway --set traffic.canary.weight=10
-      - name: Smoke Test Production Canary
+      - name: Smoke Test Production Canary (optional)
+        if: false
         run: |
           curl -f https://nexus-ai.com/actuator/health
-      - name: Promote Canary to 100%
-        if: success()
+      - name: Promote Canary to 100% (optional)
+        if: false
         run: |
           helm upgrade nexus-ai-gateway --set traffic.canary.weight=100

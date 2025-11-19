@@ -44,3 +44,21 @@ groups:
         annotations:
           summary: "Wysokie zużycie pamięci JVM (Sterta) w {{ $labels.job }}"
           description: "Usługa {{ $labels.job }} zużywa ponad 80% dostępnej pamięci sterty (heap)."
+  - name: business_alerts
+    rules:
+      - alert: AiModelStalled
+        expr: rate(ai_prediction_errors_total[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Model AI zwraca błędy"
+          description: "Serwis Analytics zgłasza błędy predykcji."
+      - alert: BlockchainHalted
+        expr: changes(blockchain_block_height[5m]) == 0
+        for: 5m
+        labels:
+           severity: critical
+        annotations:
+          summary: "Blockchain zatrzymany"
+          description: "Wysokość bloków nie zmieniła się od 5 minut."

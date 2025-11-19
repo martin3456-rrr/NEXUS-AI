@@ -15,8 +15,8 @@ class JwtTokenProviderTest {
 
     private JwtTokenProvider jwtTokenProvider;
     private final String testSecret = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!@#$%^&*()_+0123456789"; // 80+ chars
-    private final int testExpiration = 86400000; // 24 hours
-    private final int testRefreshExpiration = 604800000; // 7 days
+    private final int testExpiration = 86400000;
+    private final int testRefreshExpiration = 604800000;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -32,48 +32,35 @@ class JwtTokenProviderTest {
         java.lang.reflect.Field refreshExpField = JwtTokenProvider.class.getDeclaredField("refreshExpirationInMs");
         refreshExpField.setAccessible(true);
         refreshExpField.setInt(jwtTokenProvider, testRefreshExpiration);
+        org.springframework.test.util.ReflectionTestUtils.setField(jwtTokenProvider, "jwtSecret", testSecret);
+        org.springframework.test.util.ReflectionTestUtils.setField(jwtTokenProvider, "jwtExpirationInMs", 86400000);
     }
 
     @Test
     void shouldGenerateValidToken() {
-        // Given
         Authentication auth = new UsernamePasswordAuthenticationToken(
                 "testuser",
                 null,
                 Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER"))
         );
-
-        // When
         String token = jwtTokenProvider.generateToken(auth);
-
-        // Then
         assertThat(token).isNotNull();
         assertThat(token).isNotEmpty();
     }
 
     @Test
     void shouldExtractUsernameFromToken() {
-        // Given
         Authentication auth = new UsernamePasswordAuthenticationToken("testuser", null);
         String token = jwtTokenProvider.generateToken(auth);
-
-        // When
         String username = jwtTokenProvider.getUsernameFromToken(token);
-
-        // Then
         assertThat(username).isEqualTo("testuser");
     }
 
     @Test
     void shouldValidateValidToken() {
-        // Given
         Authentication auth = new UsernamePasswordAuthenticationToken("testuser", null);
         String token = jwtTokenProvider.generateToken(auth);
-
-        // When
         boolean isValid = jwtTokenProvider.validateToken(token);
-
-        // Then
         assertThat(isValid).isTrue();
     }
 }

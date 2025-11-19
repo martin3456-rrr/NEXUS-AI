@@ -39,6 +39,9 @@ public class PaymentController {
     @Value("${payments.topic:payments.events}")
     private String paymentsTopic;
 
+    @Value("${stripe.webhook.secret}")
+    private String stripeWebhookSecret;
+
     private final Counter paymentSuccessCounter;
     private final Counter paymentFailedCounter;
     private final Timer paymentProcessTimer;
@@ -65,11 +68,17 @@ public class PaymentController {
 
     @PostMapping("/charge")
     public ResponseEntity<?> processPayment(@Valid @RequestBody PaymentRequest paymentRequest) {
+        if (stripeWebhookSecret == null || stripeWebhookSecret.isEmpty()) {
+            logger.error("Stripe webhook secret is not configured!");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Webhook secret not configured");
+        }
+
         logger.info("Processing payment request: amount={}, currency={}, description={}",
                 paymentRequest.getAmount(), paymentRequest.getCurrency(), paymentRequest.getDescription());
 
         long startTime = System.nanoTime();
 
+        Event event;
         try {
             String chargeId = stripeService.createCharge(paymentRequest);
 
@@ -95,6 +104,7 @@ public class PaymentController {
                     "chargeId", chargeId,
                     "amount", paymentRequest.getAmount() + " " + paymentRequest.getCurrency()
             ));
+            event = Webhook.constructEvent(payload, sigHeader, stripeWebhookSecret);
 
         } catch (IllegalArgumentException | StripeService.PaymentException e) {
             logger.error("Payment exception: {}", e.getMessage());
@@ -108,6 +118,7 @@ public class PaymentController {
             paymentFailedCounter.increment();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
                     "success", false,
+                    "message", "An unexpected error occurred: " + e.getMessage(),
                     "message", "An unexpected error occurred: " + e.getMessage()
             ));
         } finally {
@@ -116,8 +127,6 @@ public class PaymentController {
     }
     @PostMapping("/webhook")
     public ResponseEntity<String> handleStripeWebhook(@RequestBody String payload, @RequestHeader("Stripe-Signature") String sigHeader) {
-        // Potrzebujesz sekretu webhooka (inny niż klucz API!)
-        // Ustaw go w Config Serverze: stripe.webhook.secret
         String endpointSecret = "whsec_....";
 
         Event event;
@@ -127,11 +136,9 @@ public class PaymentController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Webhook error: " + e.getMessage());
         }
 
-        // Obsłuż zdarzenie
         if ("charge.succeeded".equals(event.getType())) {
             Charge charge = (Charge) event.getDataObjectDeserializer().getObject().orElse(null);
-            // Znajdź płatność w swojej bazie danych i oznacz jako "ZAPŁACONO"
-            //paymentService.confirmPayment(charge.getId());
+            paymentService.confirmPayment(charge.getId());
             System.out.println("Payment succeeded for: " + charge.getId());
         }
 

@@ -4,6 +4,11 @@ server:
 spring:
   application:
     name: gateway-service
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
   cloud:
     gateway:
       server:
@@ -29,8 +34,11 @@ spring:
                       predicates:
                         - Path=/api/ai/**
                       filters:
-                        - RewritePath=/api/ai/(?<segment>.*), /$\{segment}
-
+                        - name: RequestRateLimiter
+                          args:
+                            redis-rate-limiter.replenishRate: 10
+                            redis-rate-limiter.burstCapacity: 20
+                            key-resolver: "#{@userKeyResolver}"
                     - id: payment-service
                       uri: lb://payment-service
                       predicates:

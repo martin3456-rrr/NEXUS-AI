@@ -99,9 +99,8 @@ kubectl create secret generic postgres-secret -n nexus-ai \
 **2.JWT Signing Key:**
 
 ```bash
-kubectl create secret generic jwt-secret -n nexus-ai \
-  --from-literal=secret='<YOUR_256BIT_SECRET_KEY>'
-  ```
+kubectl create secret generic jwt-secret --from-literal=secret=$(openssl rand -base64 32) -n nexus-ai
+```
 **3.Deployment Command (After Secrets are Created):**
 ```bash
 kubectl create namespace nexus-ai
