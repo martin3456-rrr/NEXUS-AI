@@ -64,3 +64,18 @@ eureka:
   client:
     service-url:
       defaultZone: http://localhost:8761/eureka/
+
+springdoc:
+  swagger-ui:
+    urls:
+      - name: User Service
+        url: /api/users/v3/api-docs
+      - name: AI Analytics Service
+        url: /api/analytics/v3/api-docs
+      - name: Payment Service
+        url: /api/payments/v3/api-docs
+      - name: Blockchain Service
+        url: /api/blockchain/v3/api-docs
+      - name: Notification Service
+        url: /api/notifications/v3/api-docs
+    path: /swagger-ui.html

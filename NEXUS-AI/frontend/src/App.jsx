@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
+import { AuthProvider, useAuth } from './AuthContext';
 
-export default function App() {
+function Dashboard() {
+    const { token, logout } = useAuth();
     const [metrics, setMetrics] = useState('0.5, 0.6, 0.7, 0.8, 0.9');
     const [prediction, setPrediction] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
@@ -19,7 +21,10 @@ export default function App() {
 
             const response = await fetch('/api/analytics/predict', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
                 body: JSON.stringify({ "input": parsedMetrics }),
             });
 
@@ -48,6 +53,7 @@ export default function App() {
             backgroundColor: '#f9f9f9',
             textAlign: 'center'
         }}>
+            <button onClick={logout} style={{ float: 'right' }}>Logout</button>
             <h1 style={{ color: '#333' }}>AI Load Prediction Dashboard</h1>
             <p style={{ color: '#666' }}>Enter recent system metrics (comma-separated) to predict the next value.</p>
 
@@ -103,4 +109,37 @@ export default function App() {
             )}
         </div>
     );
+}
+
+function LoginScreen() {
+    const { login } = useAuth();
+    const [user, setUser] = useState('');
+    const [pass, setPass] = useState('');
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        login(user, pass);
+    };
+
+    return (
+        <form onSubmit={handleSubmit} style={{ textAlign: 'center', marginTop: '50px' }}>
+            <h2>NEXUS AI Login</h2>
+            <input placeholder="Username" value={user} onChange={e => setUser(e.target.value)} /><br />
+            <input type="password" placeholder="Password" value={pass} onChange={e => setPass(e.target.value)} /><br />
+            <button type="submit">Log in</button>
+        </form>
+    );
+}
+
+export default function App() {
+    return (
+        <AuthProvider>
+            <AppContent />
+        </AuthProvider>
+    );
+}
+
+function AppContent() {
+    const { token } = useAuth();
+    return token ? <Dashboard /> : <LoginScreen />;
 }

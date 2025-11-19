@@ -22,6 +22,9 @@ spec:
           image: ghcr.io/your-username/nexus-ai/gateway-service:latest
           ports:
             - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: global-config
           env:
             - name: SPRING_PROFILES_ACTIVE
               value: "kubernetes"
