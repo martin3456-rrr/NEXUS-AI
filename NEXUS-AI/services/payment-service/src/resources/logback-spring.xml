@@ -3,10 +3,15 @@
 
     <appender name="STDOUT_JSON" class="ch.qos.logback.core.ConsoleAppender">
         <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <includeMdcKeyName>traceId</includeMdcKeyName>
+            <includeMdcKeyName>spanId</includeMdcKeyName>
+            <includeMdcKeyName>parentId</includeMdcKeyName>
+
             <fieldNames>
                 <version>[ignore]</version>
                 <levelValue>[ignore]</levelValue>
             </fieldNames>
+
             <customFields>{"service_name":"${springAppName:-}"}</customFields>
         </encoder>
     </appender>

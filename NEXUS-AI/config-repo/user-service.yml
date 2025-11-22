@@ -1,5 +1,6 @@
 jwt:
   secret: myVeryLongSecretKeyThatShouldBeAtLeast256BitsLongForHS512Algorithm
+  secret-rotation: myVeryShortSecretKeyThatShouldBeAtLeast25658BitsLongForHS5126Algorithm
   expiration: 86400000
   refresh-expiration: 604800000
 ethereum:

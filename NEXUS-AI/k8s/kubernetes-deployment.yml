@@ -28,7 +28,17 @@ spec:
     metadata:
       labels:
         app: user-service
+      annotations:
+        vault.hashicorp.com/agent-inject: "true"
+        vault.hashicorp.com/role: "user-service-role"
+        vault.hashicorp.com/agent-inject-secret-database-creds: "secret/data/nexus-ai/database"
+        vault.hashicorp.com/agent-inject-template-database-creds: |
+          {{ with secret "secret/data/nexus-ai/database" -}}
+          spring.datasource.username={{ .Data.data.username }}
+          spring.datasource.password={{ .Data.data.password }}
+          {{- end }}
     spec:
+      serviceAccountName: user-service-sa
       containers:
         - name: user-service
           image: ghcr.io/your-username/nexus-ai/user-service:latest
@@ -38,16 +48,6 @@ spec:
             - configMapRef:
                 name: global-config
           env:
-            - name: SPRING_DATASOURCE_USERNAME
-              valueFrom:
-                secretKeyRef:
-                  name: postgres-secret
-                  key: username
-            - name: SPRING_DATASOURCE_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: postgres-secret
-                  key: password
             - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:
@@ -78,6 +78,7 @@ spec:
             limits:
               memory: "1Gi"
               cpu: "1000m"
+
 ---
 apiVersion: v1
 kind: Service

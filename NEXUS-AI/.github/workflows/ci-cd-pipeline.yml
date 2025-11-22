@@ -11,7 +11,7 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
-  JAVA_VERSION: '21'
+  JAVA_VERSION: '25'
   NODE_VERSION: '18'
   MAVEN_OPTS: '-Xmx1024m'
 
@@ -214,7 +214,7 @@ jobs:
         uses: grafana/k6-action@v0.2.0
         with:
           filename: ./e2e-tests/k6-script.js
-          flags: --vus 50 --duration 30s
+          flags: --vus 50 --duration 30s --fail-on-thresholds
         env:
           K6_TARGET_URL: https://staging.nexus-ai.com
 
@@ -227,50 +227,36 @@ jobs:
       name: production
       url: https://nexus-ai.com
     steps:
-      - name: Set up Kubeconfig (Production)
+      - name: Set up Kubeconfig
         uses: azure/k8s-set-context@v4
         with:
           method: kubeconfig
           kubeconfig: ${{ secrets.KUBECONFIG_PRODUCTION }}
+      - name: Deploy Rollout with Argo
+        run: |
+          kubectl apply -f k8s/ai-analytics-rollout.yaml
+          kubectl argo rollouts status ai-analytics-service --watch
       - name: Deploy Kubernetes Manifests
-        uses: azure/k8s-deploy@v4
-        with:
-          namespace: nexus-ai
-          manifests: |
-            k8s/namespace.yaml
-            k8s/global-config.yaml
-            k8s/secrets.yaml
-            k8s/postgres-deployment.yaml
-            k8s/postgres-service.yaml
-            k8s/eureka-server-deployment.yaml
-            k8s/eureka-server-service.yaml
-            k8s/user-service-deployment.yaml
-            k8s/user-service-service.yaml
-            k8s/ingress.yaml
-            # dodaj więcej manifestów w razie potrzeby
-          images: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/eureka-server:${{ github.sha }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/user-service:${{ github.sha }}
-            # dodaj pozostałe obrazy
-          imagepullsecrets: |
-            docker-registry-secret
-      - name: Deploy Blue-Green with Helm (optional)
-        if: false
         run: |
-          cd infra/helm/nexus-ai
-          helm upgrade --install nexus-ai . \
-            --namespace production \
-            --set image.tag=${{ github.sha }} \
-            --wait
-      - name: Canary Release (10% Traffic) (optional)
-        if: false
+          sed -i "s|latest|${{ github.sha }}|g" k8s/*-deployment.yaml
+          kubectl apply -f k8s/
+      - name: Verify Deployment Health
+        id: verify
+        continue-on-error: true
         run: |
-          helm upgrade nexus-ai-gateway --set traffic.canary.weight=10
-      - name: Smoke Test Production Canary (optional)
-        if: false
+          kubectl rollout status deployment/user-service -n nexus-ai --timeout=120s
+          kubectl rollout status deployment/ai-analytics-service -n nexus-ai --timeout=120s
+          curl --fail https://nexus-ai.com/actuator/health || exit 1
+      - name: Rollback on Failure
+        if: steps.verify.outcome == 'failure'
         run: |
-          curl -f https://nexus-ai.com/actuator/health
-      - name: Promote Canary to 100% (optional)
-        if: false
-        run: |
-          helm upgrade nexus-ai-gateway --set traffic.canary.weight=100
+          echo "Deployment failed! Initiating rollback..."
+          kubectl rollout undo deployment/user-service -n nexus-ai
+          kubectl rollout undo deployment/ai-analytics-service -n nexus-ai
+          kubectl rollout undo deployment/blockchain-service -n nexus-ai
+          kubectl rollout undo deployment/gateway-service -n nexus-ai
+          kubectl rollout undo deployment/notification-service -n nexus-ai
+          kubectl rollout undo deployment/payment-service -n nexus-ai
+          kubectl rollout undo deployment/voting-service -n nexus-ai
+          echo "Rollback completed."
+          exit 1

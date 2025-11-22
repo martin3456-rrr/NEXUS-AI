@@ -2,6 +2,7 @@ package com.nexus.user.security;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
+import io.jsonwebtoken.security.SignatureException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -22,14 +23,24 @@ public class JwtTokenProvider {
     @Value("${jwt.secret}")
     private String jwtSecret;
 
-    @Value("${jwt.expiration:86400000}") // 24 hours default
+    @Value("${jwt.expiration:86400000}")
     private int jwtExpirationInMs;
 
-    @Value("${jwt.refresh-expiration:604800000}") // 7 days default
+    @Value("${jwt.secret.rotation:}")
+    private String jwtRotationSecret;
+
+    @Value("${jwt.refresh-expiration:604800000}")
     private int refreshExpirationInMs;
 
     private SecretKey getSigningKey() {
         return Keys.hmacShaKeyFor(jwtSecret.getBytes());
+    }
+
+    private SecretKey getRotationKey() {
+        if (jwtRotationSecret == null || jwtRotationSecret.isEmpty()) {
+            return null;
+        }
+        return Keys.hmacShaKeyFor(jwtRotationSecret.getBytes());
     }
 
     public String generateToken(UserDetails userDetails) {
@@ -47,7 +58,6 @@ public class JwtTokenProvider {
         return generateToken(userPrincipal);
     }
 
-    // Convenience overload to support tests and callers passing Authentication directly
     public String generateToken(Authentication authentication) {
         if (authentication == null) {
             throw new IllegalArgumentException("Authentication must not be null");
@@ -119,27 +129,33 @@ public class JwtTokenProvider {
 
     private Claims getAllClaimsFromToken(String token) {
         try {
-            return Jwts.parserBuilder()
-                    .setSigningKey(getSigningKey())
-                    .build()
-                    .parseClaimsJws(token)
-                    .getBody();
+            return parseWithKey(token, getSigningKey());
+        } catch (SignatureException e) {
+            SecretKey rotationKey = getRotationKey();
+            if (rotationKey != null) {
+                try {
+                    logger.info("Primary key validation failed, attempting with rotation key...");
+                    return parseWithKey(token, rotationKey);
+                } catch (Exception ex) {
+                    logger.error("Token validation failed with both keys.");
+                    throw e;
+                }
+            }
+            throw e;
         } catch (ExpiredJwtException e) {
             logger.error("JWT token is expired: {}", e.getMessage());
             throw e;
-        } catch (UnsupportedJwtException e) {
-            logger.error("JWT token is unsupported: {}", e.getMessage());
-            throw e;
-        } catch (MalformedJwtException e) {
-            logger.error("JWT token is malformed: {}", e.getMessage());
-            throw e;
-        } catch (SignatureException e) {
-            logger.error("JWT signature does not match: {}", e.getMessage());
-            throw e;
-        } catch (IllegalArgumentException e) {
-            logger.error("JWT token compact of handler are invalid: {}", e.getMessage());
+        } catch (Exception e) {
+            logger.error("JWT parsing error: {}", e.getMessage());
             throw e;
         }
+    }
+    private Claims parseWithKey(String token, SecretKey key) {
+        return Jwts.parserBuilder()
+                .setSigningKey(key)
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
     }
 
     private Boolean isTokenExpired(String token) {

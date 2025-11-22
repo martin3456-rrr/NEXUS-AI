@@ -19,6 +19,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import io.micrometer.core.instrument.DistributionSummary;
 
 import jakarta.validation.Valid;
 
@@ -35,6 +36,7 @@ public class PaymentController {
 
     private final StripeService stripeService;
     private final PaymentEventPublisher eventPublisher;
+    private final DistributionSummary paymentRevenueSummary;
 
     @Value("${payments.topic:payments.events}")
     private String paymentsTopic;
@@ -64,6 +66,11 @@ public class PaymentController {
         this.paymentProcessTimer = Timer.builder("payments.processing.time")
                 .description("Time taken to process a payment")
                 .register(registry);
+
+        this.paymentRevenueSummary = DistributionSummary.builder("payments.revenue")
+                .description("Sum of successful payment amounts")
+                .baseUnit("USD")
+                .register(registry);
     }
 
     @PostMapping("/charge")
@@ -77,6 +84,8 @@ public class PaymentController {
                 paymentRequest.getAmount(), paymentRequest.getCurrency(), paymentRequest.getDescription());
 
         long startTime = System.nanoTime();
+
+
 
         Event event;
         try {
@@ -97,6 +106,10 @@ public class PaymentController {
             logger.info("Payment successful for charge ID: {}", chargeId);
 
             paymentSuccessCounter.increment();
+
+            if (paymentRequest.getAmount() != null) {
+                paymentRevenueSummary.record(paymentRequest.getAmount().doubleValue());
+            }
 
             return ResponseEntity.ok(Map.of(
                     "success", true,
@@ -124,6 +137,7 @@ public class PaymentController {
         } finally {
             paymentProcessTimer.record(System.nanoTime() - startTime, TimeUnit.NANOSECONDS);
         }
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
     }
     @PostMapping("/webhook")
     public ResponseEntity<String> handleStripeWebhook(@RequestBody String payload, @RequestHeader("Stripe-Signature") String sigHeader) {

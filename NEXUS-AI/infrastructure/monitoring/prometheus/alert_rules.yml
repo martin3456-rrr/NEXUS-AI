@@ -62,3 +62,40 @@ groups:
         annotations:
           summary: "Blockchain zatrzymany"
           description: "Wysokość bloków nie zmieniła się od 5 minut."
+  - name: advanced_alerts
+    rules:
+      - alert: JvmHeapCritical
+        expr: sum(jvm_memory_used_bytes{area="heap"}) by (job) / sum(jvm_memory_max_bytes{area="heap"}) by (job) > 0.9
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Krytyczne zużycie pamięci w {{ $labels.job }}"
+          description: "Heap usage > 90%. Ryzyko OOM Crash."
+
+      - alert: HighGcDuration
+        expr: rate(jvm_gc_pause_seconds_sum[1m]) > 1
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Wysoki czas GC w {{ $labels.job }}"
+          description: "Aplikacja spędza >1s na GC w ciągu ostatniej minuty."
+
+      - alert: KafkaConsumerLagging
+        expr: kafka_consumergroup_lag > 100
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Opóźnienie konsumenta Kafki"
+          description: "Notification-service ma zaległości w przetwarzaniu wiadomości."
+
+      - alert: AiModelFrozen
+        expr: stddev_over_time(ai_prediction_value[5m]) == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Podejrzana stałość predykcji AI"
+          description: "Model zwraca identyczną wartość od 10 minut. Sprawdź poprawność danych wejściowych."
